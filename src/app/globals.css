@@ -119,6 +119,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -135,6 +136,7 @@
 
 .react-flow__handle {
   @apply w-3 h-3 border-2 border-white;
+  position: absolute;
 }
 
 .react-flow__handle-top {
@@ -149,9 +151,43 @@
   @apply stroke-2;
 }
 
+.react-flow__connectionline {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
 /* Resizable panels styles */
 .resize-handle {
   @apply bg-border hover:bg-accent transition-colors;
+}
+
+/* Fix for nested ResizablePanelGroups - prevent inverse resize behavior */
+[data-slot="resizable-panel-group"] {
+  position: relative;
+}
+
+[data-slot="resizable-panel-group"][data-panel-group-direction="horizontal"] {
+  flex-direction: row !important;
+}
+
+[data-slot="resizable-panel-group"][data-panel-group-direction="vertical"] {
+  flex-direction: column !important;
+}
+
+[data-slot="resizable-panel"] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Ensure resize handles maintain proper sizing */
+[data-slot="resizable-handle"] {
+  flex-shrink: 0;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Custom scrollbar */

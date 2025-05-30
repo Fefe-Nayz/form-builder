@@ -10,7 +10,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Upload,
@@ -20,6 +31,7 @@ import {
   Undo,
   Redo,
   LayoutGrid,
+  Database,
 } from "lucide-react";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
@@ -28,6 +40,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CardTemplate } from "@/types/graph-builder";
 import { MetricTab } from "@/types/template";
 import { ProjectManager } from "./ProjectManager";
+import { toast } from "sonner";
 
 export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
   const {
@@ -52,6 +65,8 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
     canRedo: multiCanRedo,
   } = useMultiTabGraphBuilderStore();
 
+  const { activeTemplateId, exportForDatabase } = useTemplateStore();
+
   // Choose the right undo/redo functions based on mode
   const undo = tabMode ? multiUndo : singleUndo;
   const redo = tabMode ? multiRedo : singleRedo;
@@ -60,6 +75,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
 
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [templateForm, setTemplateForm] = useState<Partial<CardTemplate>>({
     code: "",
     metric: "",
@@ -82,72 +98,72 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } else {
-      // Multi-tab mode
+      // Multi-tab mode - show dialog to choose export type
       const activeTab = getActiveTab();
       if (!activeTab) {
-        alert("Aucun onglet actif");
+        toast.error("Aucun onglet actif");
         return;
       }
-
-      // Check if we want to export just the current metric or the whole template
-      const exportChoice = confirm(
-        "Voulez-vous exporter le template complet avec toutes ses métriques ?\n\n" +
-          "Cliquez sur OK pour exporter le template complet.\n" +
-          "Cliquez sur Annuler pour n'exporter que la métrique actuelle."
-      );
-
-      if (exportChoice) {
-        // Export the complete template
-        const { activeTemplateId, exportTemplate } =
-          useTemplateStore.getState();
-        if (!activeTemplateId) {
-          alert("Aucun template actif");
-          return;
-        }
-
-        const templateData = exportTemplate(activeTemplateId);
-        if (!templateData) {
-          alert("Erreur lors de l'export du template");
-          return;
-        }
-
-        const blob = new Blob([JSON.stringify(templateData, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `template_${templateData.name
-          .toLowerCase()
-          .replace(/\s+/g, "_")}_v${templateData.version}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        // Export just the current metric
-        const data = {
-          name: activeTab.name,
-          nodes: activeTab.nodes,
-          connections: activeTab.connections,
-          position: activeTab.position,
-        };
-
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `metric_${activeTab.name
-          .toLowerCase()
-          .replace(/\s+/g, "_")}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      setIsExportDialogOpen(true);
     }
+  };
+
+  const handleExportTemplate = () => {
+    // Export the complete template
+    const { activeTemplateId, exportTemplate } = useTemplateStore.getState();
+    if (!activeTemplateId) {
+      toast.error("Aucun template actif");
+      return;
+    }
+
+    const templateData = exportTemplate(activeTemplateId);
+    if (!templateData) {
+      toast.error("Erreur lors de l'export du template");
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(templateData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `template_${templateData.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")}_v${templateData.version}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIsExportDialogOpen(false);
+  };
+
+  const handleExportMetric = () => {
+    // Export just the current metric
+    const activeTab = getActiveTab();
+    if (!activeTab) return;
+
+    const data = {
+      name: activeTab.name,
+      nodes: activeTab.nodes,
+      connections: activeTab.connections,
+      position: activeTab.position,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `metric_${activeTab.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIsExportDialogOpen(false);
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,7 +199,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
                 });
               });
 
-              alert(
+              toast.success(
                 "Template importé avec succès avec " +
                   data.metrics.length +
                   " métriques"
@@ -197,7 +213,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
                 // No active tab, create one
                 const { activeTemplateId } = useTemplateStore.getState();
                 if (!activeTemplateId) {
-                  alert(
+                  toast.error(
                     "Aucun template actif. Créez ou sélectionnez un template d'abord."
                   );
                   return;
@@ -212,13 +228,13 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
                 connections: data.connections || [],
                 position: data.position || { x: 0, y: 0, zoom: 1 },
               });
-              alert("Métrique importée avec succès");
+              toast.success("Métrique importée avec succès");
             } else {
-              alert("Format de fichier non reconnu");
+              toast.error("Format de fichier non reconnu");
             }
           } catch (importError) {
             console.error("Import error:", importError);
-            alert(
+            toast.error(
               "Erreur lors de l'import: " +
                 (importError instanceof Error
                   ? importError.message
@@ -228,7 +244,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
         }
       } catch (parseError) {
         console.error("Parse error:", parseError);
-        alert("Erreur lors de l'import du fichier JSON");
+        toast.error("Erreur lors de l'import du fichier JSON");
       }
     };
     reader.readAsText(file);
@@ -239,7 +255,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
 
   const handleCreateTemplate = () => {
     if (!templateForm.code || !templateForm.metric) {
-      alert("Veuillez renseigner au moins le code et la métrique");
+      toast.error("Veuillez renseigner au moins le code et la métrique");
       return;
     }
 
@@ -252,6 +268,53 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
 
     setTemplate(newTemplate);
     setIsTemplateDialogOpen(false);
+    toast.success("Template créé avec succès!");
+  };
+
+  const handleCreateCard = () => {
+    if (!tabMode) {
+      toast.error(
+        "La création de carte n'est disponible qu'en mode multi-onglets"
+      );
+      return;
+    }
+
+    if (!activeTemplateId) {
+      toast.error("Veuillez d'abord sélectionner un template");
+      return;
+    }
+
+    try {
+      const dbExport = exportForDatabase(activeTemplateId);
+      if (!dbExport) {
+        toast.error("Erreur lors de l'export de la carte");
+        return;
+      }
+
+      const template = useTemplateStore
+        .getState()
+        .templates.find((t) => t.id === activeTemplateId);
+      const filename = `card_${template?.name
+        .toLowerCase()
+        .replace(/\s+/g, "_")}_v${template?.version}.json`;
+
+      const blob = new Blob([JSON.stringify(dbExport, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Carte créée et téléchargée avec succès!");
+    } catch (error) {
+      console.error("Error creating card:", error);
+      toast.error("Erreur lors de la création de la carte");
+    }
   };
 
   return (
@@ -355,6 +418,17 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
               <LayoutGrid className="h-4 w-4 mr-2" />
               Gérer les templates
             </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleCreateCard}
+              disabled={!activeTemplateId}
+              title="Créer une carte (export pour base de données)"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Créer carte
+            </Button>
+
             <div className="w-px h-6 bg-border mx-1" />
           </>
         )}
@@ -430,12 +504,41 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Gestion des templates</DialogTitle>
+            <DialogDescription>
+              Créez, modifiez et exportez vos templates
+            </DialogDescription>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-auto">
             <ProjectManager />
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Export Dialog */}
+      <AlertDialog
+        open={isExportDialogOpen}
+        onOpenChange={setIsExportDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Choisir le type d&apos;exportation
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Voulez-vous exporter le template complet avec toutes ses métriques
+              ou seulement la métrique actuelle ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleExportMetric}>
+              Métrique actuelle uniquement
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleExportTemplate}>
+              Template complet
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

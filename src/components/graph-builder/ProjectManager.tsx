@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -40,6 +33,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SAMPLE_MEAN_TEMPLATE } from "@/lib/sample-template";
 
 export function ProjectManager() {
@@ -57,8 +61,7 @@ export function ProjectManager() {
     addMetricToTemplate,
   } = useTemplateStore();
 
-  const { getActiveTab, createTab, importGraph } =
-    useMultiTabGraphBuilderStore();
+  const { getActiveTab } = useMultiTabGraphBuilderStore();
 
   const [newTemplateDialog, setNewTemplateDialog] = useState(false);
   const [editTemplateDialog, setEditTemplateDialog] = useState(false);
@@ -67,6 +70,8 @@ export function ProjectManager() {
     version: "1.0",
     description: "",
   });
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -95,7 +100,7 @@ export function ProjectManager() {
 
   const handleCreateTemplate = () => {
     if (!templateForm.name || !templateForm.version) {
-      alert("Le nom et la version sont requis");
+      toast.error("Le nom et la version sont requis");
       return;
     }
 
@@ -105,88 +110,115 @@ export function ProjectManager() {
       templateForm.description
     );
     setNewTemplateDialog(false);
+    setTemplateForm({ name: "", version: "1.0", description: "" });
+    toast.success("Template créé avec succès");
   };
 
   const handleUpdateTemplate = () => {
-    if (!activeTemplateId || !templateForm.name || !templateForm.version) {
-      alert("Le nom et la version sont requis");
+    if (!templateForm.name || !templateForm.version) {
+      toast.error("Le nom et la version sont requis");
       return;
     }
 
-    updateTemplate(activeTemplateId, {
-      name: templateForm.name,
-      version: templateForm.version,
-      description: templateForm.description,
-    });
-    setEditTemplateDialog(false);
+    if (activeTemplateId) {
+      updateTemplate(activeTemplateId, {
+        name: templateForm.name,
+        version: templateForm.version,
+        description: templateForm.description,
+      });
+      setEditTemplateDialog(false);
+      setTemplateForm({ name: "", version: "1.0", description: "" });
+      toast.success("Template mis à jour avec succès");
+    }
   };
 
   const handleDeleteTemplate = (templateId: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer ce template?")) {
-      deleteTemplate(templateId);
+    setTemplateToDelete(templateId);
+    setDeleteConfirmDialog(true);
+  };
+
+  const confirmDeleteTemplate = () => {
+    if (templateToDelete) {
+      deleteTemplate(templateToDelete);
+      toast.success("Template supprimé avec succès");
+      setTemplateToDelete(null);
+      setDeleteConfirmDialog(false);
     }
   };
 
   const handleExportTemplate = (templateId: string) => {
-    const template = exportTemplate(templateId);
-    if (!template) return;
+    const templateData = exportTemplate(templateId);
+    if (!templateData) {
+      toast.error("Erreur lors de l'export du template");
+      return;
+    }
 
-    const dataStr = JSON.stringify(template, null, 2);
-    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(
-      dataStr
-    )}`;
-
-    const exportFileDefaultName = `${template.name}_v${template.version}.json`;
-    const linkElement = document.createElement("a");
-    linkElement.setAttribute("href", dataUri);
-    linkElement.setAttribute("download", exportFileDefaultName);
-    linkElement.click();
+    const blob = new Blob([JSON.stringify(templateData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `template_${templateData.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")}_v${templateData.version}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Template exporté avec succès");
   };
 
   const handleExportDatabaseFormat = (templateId: string) => {
     const dbExport = exportForDatabase(templateId);
     if (!dbExport) {
-      alert("Erreur lors de l'export pour la base de données");
+      toast.error("Erreur lors de l'export pour la base de données");
       return;
     }
 
     const template = templates.find((t) => t.id === templateId);
-    const filename = `${template?.name
+    const filename = `db_export_${template?.name
       .toLowerCase()
-      .replace(/\s+/g, "_")}_database_v${template?.version}.json`;
+      .replace(/\s+/g, "_")}_v${template?.version}.json`;
 
-    const dataStr = JSON.stringify(dbExport, null, 2);
-    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(
-      dataStr
-    )}`;
-
-    const linkElement = document.createElement("a");
-    linkElement.setAttribute("href", dataUri);
-    linkElement.setAttribute("download", filename);
-    linkElement.click();
+    const blob = new Blob([JSON.stringify(dbExport, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Export pour base de données créé avec succès");
   };
 
   const handleExportCompleteExample = (templateId: string) => {
     const completeExport = exportCompleteExample(templateId, true);
     if (!completeExport) {
-      alert("Erreur lors de l'export de l'exemple complet");
+      toast.error("Erreur lors de l'export de l'exemple complet");
       return;
     }
 
     const template = templates.find((t) => t.id === templateId);
-    const filename = `${template?.name
+    const filename = `complete_example_${template?.name
       .toLowerCase()
-      .replace(/\s+/g, "_")}_complete_example_v${template?.version}.json`;
+      .replace(/\s+/g, "_")}_v${template?.version}.json`;
 
-    const dataStr = JSON.stringify(completeExport, null, 2);
-    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(
-      dataStr
-    )}`;
-
-    const linkElement = document.createElement("a");
-    linkElement.setAttribute("href", dataUri);
-    linkElement.setAttribute("download", filename);
-    linkElement.click();
+    const blob = new Blob([JSON.stringify(completeExport, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Exemple complet exporté avec succès");
   };
 
   const handleImportTemplate = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,11 +228,12 @@ export function ProjectManager() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const templateData = JSON.parse(e.target?.result as string);
-        importTemplate(templateData);
-        alert("Template importé avec succès");
-      } catch {
-        alert("Format JSON invalide. Vérifiez votre fichier d'import.");
+        const data = JSON.parse(e.target?.result as string);
+        importTemplate(data);
+        toast.success("Template importé avec succès");
+      } catch (error) {
+        console.error("Import error:", error);
+        toast.error("Format JSON invalide. Vérifiez votre fichier d'import.");
       }
     };
     reader.readAsText(file);
@@ -211,11 +244,12 @@ export function ProjectManager() {
 
   const handleLoadSampleTemplate = () => {
     try {
-      // Import the sample template
       const templateId = importTemplate(SAMPLE_MEAN_TEMPLATE);
       setActiveTemplate(templateId);
 
       // Load the metrics into tabs
+      const { createTab, importGraph } =
+        useMultiTabGraphBuilderStore.getState();
       SAMPLE_MEAN_TEMPLATE.metrics.forEach((metric) => {
         const tabId = createTab(metric.name);
         importGraph(tabId, {
@@ -225,28 +259,33 @@ export function ProjectManager() {
         });
       });
 
-      alert("Template d'exemple chargé avec succès!");
+      toast.success(
+        `Template d'exemple chargé avec succès ! ${
+          SAMPLE_MEAN_TEMPLATE.metrics[0]?.nodes.length || 0
+        } nœuds et ${
+          SAMPLE_MEAN_TEMPLATE.metrics[0]?.connections.length || 0
+        } connexions.`
+      );
     } catch (error) {
-      console.error("Erreur lors du chargement du template d'exemple:", error);
-      alert("Erreur lors du chargement du template d'exemple");
+      console.error("Error loading sample:", error);
+      toast.error("Erreur lors du chargement du template d'exemple");
     }
   };
 
   const handleSaveCurrentTabToTemplate = () => {
     if (!activeTemplateId) {
-      alert("Veuillez d'abord sélectionner ou créer un template");
+      toast.error("Veuillez d'abord sélectionner ou créer un template");
       return;
     }
 
     const activeTab = getActiveTab();
     if (!activeTab) {
-      alert("Aucun onglet actif");
+      toast.error("Aucun onglet actif");
       return;
     }
 
-    // Add the current tab to the active template
     addMetricToTemplate(activeTemplateId, activeTab);
-    alert("Métrique sauvegardée dans le template");
+    toast.success("Métrique sauvegardée dans le template");
   };
 
   const handleSelectTemplate = (templateId: string) => {
@@ -254,155 +293,159 @@ export function ProjectManager() {
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Gestion des templates</CardTitle>
-          <CardDescription>
-            Créez, modifiez et exportez vos templates
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2 mb-4">
-            <Button
-              onClick={() => setNewTemplateDialog(true)}
-              className="flex-shrink-0"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Nouveau template
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setNewTemplateDialog(true)}
+            className="flex-shrink-0"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Nouveau template
+          </Button>
+          <label className="flex-shrink-0">
+            <Button variant="outline" asChild>
+              <span>
+                <Upload className="h-4 w-4 mr-1" />
+                Importer
+              </span>
             </Button>
-            <label className="flex-shrink-0">
-              <Button variant="outline" asChild>
-                <span>
-                  <Upload className="h-4 w-4 mr-1" />
-                  Importer
-                </span>
-              </Button>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportTemplate}
-                className="hidden"
-              />
-            </label>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportTemplate}
+              className="hidden"
+            />
+          </label>
+          <Button
+            variant="outline"
+            onClick={handleLoadSampleTemplate}
+            className="flex-shrink-0"
+          >
+            <BookOpen className="h-4 w-4 mr-1" />
+            Charger l&apos;exemple
+          </Button>
+          {activeTemplateId && (
             <Button
               variant="outline"
-              onClick={handleLoadSampleTemplate}
+              onClick={() => handleSaveCurrentTabToTemplate()}
               className="flex-shrink-0"
             >
-              <BookOpen className="h-4 w-4 mr-1" />
-              Charger l&apos;exemple
+              <Save className="h-4 w-4 mr-1" />
+              Sauvegarder l&apos;onglet
             </Button>
-            {activeTemplateId && (
-              <Button
-                variant="outline"
-                onClick={() => handleSaveCurrentTabToTemplate()}
-                className="flex-shrink-0"
-              >
-                <Save className="h-4 w-4 mr-1" />
-                Sauvegarder l&apos;onglet
-              </Button>
-            )}
-          </div>
+          )}
+        </div>
 
-          <div className="border rounded-lg">
-            <ScrollArea className="h-60">
-              {templates.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Aucun template. Créez-en un nouveau ou importez-en un.
-                </div>
-              ) : (
-                <div className="space-y-1 p-1">
-                  {templates.map((template) => (
-                    <div
-                      key={template.id}
-                      className={`flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer ${
-                        activeTemplateId === template.id ? "bg-muted" : ""
-                      }`}
-                      onClick={() => handleSelectTemplate(template.id)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{template.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Version {template.version} • {template.metrics.length}{" "}
-                          métriques
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditTemplateDialog(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-
-                        {/* Export Dropdown */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Download className="h-4 w-4" />
-                              <ChevronDown className="h-3 w-3 ml-1" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleExportTemplate(template.id);
-                              }}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Export template (Graph Builder)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleExportDatabaseFormat(template.id);
-                              }}
-                            >
-                              <Database className="h-4 w-4 mr-2" />
-                              Export base de données
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleExportCompleteExample(template.id);
-                              }}
-                            >
-                              <Database className="h-4 w-4 mr-2" />
-                              Export avec exemples
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteTemplate(template.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+        <div className="border rounded-lg">
+          <ScrollArea className="h-60">
+            {templates.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">
+                Aucun template. Créez-en un nouveau ou importez-en un.
+              </div>
+            ) : (
+              <div className="space-y-1 p-1">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={`group flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
+                      activeTemplateId === template.id ? "bg-muted" : ""
+                    }`}
+                    onClick={() => handleSelectTemplate(template.id)}
+                    onMouseEnter={(e) => {
+                      if (activeTemplateId !== template.id) {
+                        e.currentTarget.classList.add("bg-muted");
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeTemplateId !== template.id) {
+                        e.currentTarget.classList.remove("bg-muted");
+                      }
+                    }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{template.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Version {template.version} • {template.metrics.length}{" "}
+                        métriques
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
-        </CardContent>
-      </Card>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 transition-all duration-200 hover:!bg-primary/20 hover:!text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditTemplateDialog(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+
+                      {/* Export Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 transition-all duration-200 hover:!bg-primary/20 hover:!text-primary flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Download className="h-4 w-4" />
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportTemplate(template.id);
+                            }}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export template (Graph Builder)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportDatabaseFormat(template.id);
+                            }}
+                          >
+                            <Database className="h-4 w-4 mr-2" />
+                            Export base de données
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportCompleteExample(template.id);
+                            }}
+                          >
+                            <Database className="h-4 w-4 mr-2" />
+                            Export avec exemples
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive transition-all duration-200 hover:!bg-destructive/20 hover:!text-destructive-foreground "
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTemplate(template.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </div>
 
       {/* New Template Dialog */}
       <Dialog open={newTemplateDialog} onOpenChange={setNewTemplateDialog}>
@@ -536,6 +579,33 @@ export function ProjectManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteConfirmDialog}
+        onOpenChange={setDeleteConfirmDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce template ? Cette action est
+              irréversible et supprimera toutes les métriques associées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteConfirmDialog(false)}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteTemplate}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

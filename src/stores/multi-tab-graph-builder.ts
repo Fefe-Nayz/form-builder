@@ -152,9 +152,12 @@ export const useMultiTabGraphBuilderStore = create<MultiTabGraphBuilderStore>((s
   renameTab: (tabId: string, name: string) => {
     get().saveToHistory();
     
+    // Ensure name is always a string
+    const safeName = String(name || '');
+    
     set(state => ({
       tabs: state.tabs.map(tab => 
-        tab.id === tabId ? { ...tab, name } : tab
+        tab.id === tabId ? { ...tab, name: safeName } : tab
       )
     }));
   },

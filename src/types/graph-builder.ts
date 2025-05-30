@@ -25,7 +25,22 @@ export interface ReferenceMeta {
   referenceEntity?: string;
 }
 
-export type ParamMetaJson = EnumMeta & NumberMeta & ReferenceMeta & Record<string, unknown>;
+export interface StringMeta {
+  maxLength?: number;
+  pattern?: string;
+  multiline?: boolean;
+}
+
+export interface ValidationMeta {
+  required?: boolean;
+  defaultValue?: string;
+  placeholder?: {
+    fr?: string;
+    en?: string;
+  };
+}
+
+export type ParamMetaJson = EnumMeta & NumberMeta & ReferenceMeta & StringMeta & ValidationMeta & Record<string, unknown>;
 
 export interface ParamNode {
   id: string;

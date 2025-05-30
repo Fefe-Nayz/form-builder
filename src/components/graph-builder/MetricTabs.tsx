@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
@@ -32,6 +33,8 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 interface MetricTabsProps {
   className?: string;
@@ -65,7 +68,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
 
   const handleCreateTab = () => {
     if (!activeTemplateId) {
-      alert("Veuillez d'abord sélectionner ou créer un template");
+      toast.error("Veuillez d'abord sélectionner ou créer un template");
       return;
     }
     const newTabId = createTab();
@@ -95,11 +98,17 @@ export function MetricTabs({ className }: MetricTabsProps) {
     event.preventDefault();
     event.stopPropagation();
     setEditingTabId(tabId);
-    setEditingName(currentName);
+    setEditingName(typeof currentName === "string" ? currentName : "");
   };
 
   const handleSaveRename = () => {
-    if (editingTabId && typeof editingName === "string" && editingName.trim()) {
+    if (
+      editingTabId &&
+      editingName !== null &&
+      editingName !== undefined &&
+      typeof editingName === "string" &&
+      editingName.trim()
+    ) {
       renameTab(editingTabId, editingName.trim());
     }
     setEditingTabId(null);
@@ -122,10 +131,12 @@ export function MetricTabs({ className }: MetricTabsProps) {
   const handleCreateTemplate = () => {
     if (
       !newTemplate.name ||
+      newTemplate.name === null ||
+      newTemplate.name === undefined ||
       typeof newTemplate.name !== "string" ||
       !newTemplate.name.trim()
     ) {
-      alert("Veuillez entrer un nom pour le template");
+      toast.error("Veuillez entrer un nom pour le template");
       return;
     }
 
@@ -136,6 +147,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
     );
     setIsCreatingTemplate(false);
     setNewTemplate({ name: "", version: "1.0", description: "" });
+    toast.success("Template créé avec succès");
   };
 
   // Create first tab if none exist
@@ -176,9 +188,12 @@ export function MetricTabs({ className }: MetricTabsProps) {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Créer un nouveau template</DialogTitle>
+                  <DialogDescription>
+                    Remplissez les informations du template
+                  </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
                     <Label htmlFor="template-name">Nom du template</Label>
                     <Input
                       id="template-name"
@@ -186,13 +201,14 @@ export function MetricTabs({ className }: MetricTabsProps) {
                       onChange={(e) =>
                         setNewTemplate((prev) => ({
                           ...prev,
-                          name: e.target.value,
+                          name: String(e.target.value || ""),
                         }))
                       }
-                      placeholder="ex: Modèle de base"
+                      placeholder="ex: Carte d'évaluation standard"
                     />
                   </div>
-                  <div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="template-version">Version</Label>
                     <Input
                       id="template-version"
@@ -206,11 +222,12 @@ export function MetricTabs({ className }: MetricTabsProps) {
                       placeholder="ex: 1.0"
                     />
                   </div>
-                  <div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="template-description">
-                      Description (optionnel)
+                      Description (optionnelle)
                     </Label>
-                    <Input
+                    <Textarea
                       id="template-description"
                       value={newTemplate.description}
                       onChange={(e) =>
@@ -220,8 +237,10 @@ export function MetricTabs({ className }: MetricTabsProps) {
                         }))
                       }
                       placeholder="Description du template"
+                      rows={3}
                     />
                   </div>
+
                   <div className="flex justify-end space-x-2">
                     <Button
                       variant="outline"
@@ -278,7 +297,9 @@ export function MetricTabs({ className }: MetricTabsProps) {
                       >
                         <Input
                           value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
+                          onChange={(e) =>
+                            setEditingName(String(e.target.value || ""))
+                          }
                           onKeyDown={handleKeyDown}
                           className="h-6 px-1 text-xs w-20"
                           autoFocus
@@ -286,7 +307,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 w-5 p-0"
+                          className="h-5 w-5 p-0 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400"
                           onClick={handleSaveRename}
                         >
                           <Check className="h-3 w-3" />
@@ -294,7 +315,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 w-5 p-0"
+                          className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                           onClick={handleCancelRename}
                         >
                           <XIcon className="h-3 w-3" />
@@ -302,14 +323,20 @@ export function MetricTabs({ className }: MetricTabsProps) {
                       </div>
                     ) : (
                       <>
-                        <span className="truncate">{tab.name}</span>
+                        <span className="truncate">
+                          {String(tab.name || "")}
+                        </span>
                         <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground"
                             onClick={(e) =>
-                              handleStartRename(tab.id, tab.name, e)
+                              handleStartRename(
+                                tab.id,
+                                String(tab.name || ""),
+                                e
+                              )
                             }
                           >
                             <Edit2 className="h-3 w-3" />
@@ -318,7 +345,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/20 hover:text-destructive"
                               onClick={(e) => handleDeleteTab(tab.id, e)}
                             >
                               <X className="h-3 w-3" />
@@ -336,7 +363,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
               size="sm"
               variant="outline"
               onClick={handleCreateTab}
-              className="h-8 px-2"
+              className="h-8 px-2 hover:bg-primary/10 hover:text-primary hover:border-primary/50"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -347,9 +374,9 @@ export function MetricTabs({ className }: MetricTabsProps) {
                 variant="outline"
                 onClick={() => {
                   addMetricToTemplate(activeTemplateId, activeTab);
-                  alert("Métrique sauvegardée dans le template");
+                  toast.success("Métrique sauvegardée dans le template");
                 }}
-                className="h-8 px-2"
+                className="h-8 px-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 dark:hover:bg-green-900/20 dark:hover:text-green-400"
                 title="Sauvegarder la métrique actuelle dans le template"
               >
                 <ArrowUp className="h-4 w-4" />
@@ -360,9 +387,13 @@ export function MetricTabs({ className }: MetricTabsProps) {
 
         {/* Tab Content */}
         {tabs.map((tab) => (
-          <TabsContent key={tab.id} value={tab.id} className="flex-1 p-0 m-0">
+          <TabsContent
+            key={tab.id}
+            value={tab.id}
+            className="flex-1 p-0 m-0 min-h-0"
+          >
             <div className="h-full">
-              <ResizablePanelGroup direction="horizontal">
+              <ResizablePanelGroup direction="horizontal" className="h-full">
                 {/* Center - Graph Canvas */}
                 <ResizablePanel defaultSize={50} minSize={30}>
                   <GraphCanvas
@@ -375,12 +406,12 @@ export function MetricTabs({ className }: MetricTabsProps) {
 
                 {/* Right Sidebar */}
                 <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
-                  <div className="h-full flex flex-col">
+                  <div className="h-full flex flex-col min-h-0">
                     <Tabs
                       defaultValue="editor"
-                      className="h-full flex flex-col"
+                      className="h-full flex flex-col min-h-0"
                     >
-                      <TabsList className="grid grid-cols-2 mx-4 mb-0 w-[calc(100%-2rem)]">
+                      <TabsList className="grid grid-cols-2 mx-4 mb-0 w-[calc(100%-2rem)] flex-shrink-0">
                         <TabsTrigger
                           value="editor"
                           className="px-2 py-1 text-sm"
@@ -396,13 +427,15 @@ export function MetricTabs({ className }: MetricTabsProps) {
                       </TabsList>
                       <TabsContent
                         value="editor"
-                        className="flex-1 p-4 overflow-auto"
+                        className="flex-1 p-0 m-0 min-h-0 overflow-hidden"
                       >
                         {activeTab?.selectedNodeId ? (
-                          <NodeEditor
-                            nodeId={activeTab.selectedNodeId}
-                            tabMode={true}
-                          />
+                          <div className="h-full p-4 overflow-y-auto">
+                            <NodeEditor
+                              nodeId={activeTab.selectedNodeId}
+                              tabMode={true}
+                            />
+                          </div>
                         ) : (
                           <div className="h-full flex items-center justify-center text-muted-foreground">
                             <p>Sélectionnez un nœud pour l&apos;éditer</p>
@@ -412,9 +445,17 @@ export function MetricTabs({ className }: MetricTabsProps) {
 
                       <TabsContent
                         value="preview"
-                        className="flex-1 p-4 overflow-auto"
+                        className="flex-1 p-0 m-0 min-h-0 overflow-hidden"
                       >
-                        <FormPreview tabMode={true} />
+                        {activeTab?.nodes && activeTab.nodes.length > 0 ? (
+                          <div className="h-full p-4 overflow-y-auto">
+                            <FormPreview tabMode={true} />
+                          </div>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-muted-foreground">
+                            <p>Aucun nœud à prévisualiser</p>
+                          </div>
+                        )}
                       </TabsContent>
                     </Tabs>
                   </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,32 +13,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { ParamNode, EnumOption } from "@/types/graph-builder";
 import JsonLogic from "json-logic-js";
+import { useTemplateStore } from "@/stores/template-store";
+import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Mock form generator based on the graph structure
 export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
   const singleTabStore = useGraphBuilderStore();
   const multiTabStore = useMultiTabGraphBuilderStore();
+  const { activeTemplateId, exportForDatabase } = useTemplateStore();
 
-  // Use the appropriate store based on tabMode
-  const nodes = tabMode
-    ? multiTabStore.getActiveTab()?.nodes || []
-    : singleTabStore.nodes;
-  const template = tabMode ? null : singleTabStore.template;
+  // Use appropriate store based on mode with useMemo to avoid dependency issues
+  const storeNodes = useMemo(() => {
+    return tabMode
+      ? multiTabStore.getActiveTab()?.nodes || []
+      : singleTabStore.nodes;
+  }, [tabMode, multiTabStore, singleTabStore.nodes]);
+
+  const storeTemplate = useMemo(() => {
+    return tabMode ? null : singleTabStore.template;
+  }, [tabMode, singleTabStore.template]);
 
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   // Get root nodes (no parent_id) sorted by order
-  const rootNodes = nodes
+  const rootNodes = storeNodes
     .filter((node) => !node.parent_id)
     .sort((a, b) => a.order - b.order);
 
   // Get children of a node sorted by order
   const getChildren = (parentId: string): ParamNode[] => {
-    return nodes
+    return storeNodes
       .filter((node) => node.parent_id === parentId)
       .sort((a, b) => a.order - b.order);
   };
@@ -128,16 +144,40 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
         break;
 
       case 5: // date
+        const dateValue =
+          typeof formData[node.key] === "string"
+            ? new Date(formData[node.key] as string)
+            : undefined;
+
         input = (
-          <Input
-            type="date"
-            value={
-              typeof formData[node.key] === "string"
-                ? (formData[node.key] as string)
-                : ""
-            }
-            onChange={(e) => handleChange(e.target.value)}
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !dateValue && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateValue ? (
+                  format(dateValue, "PPP")
+                ) : (
+                  <span>Sélectionner une date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={dateValue}
+                onSelect={(date) =>
+                  handleChange(date?.toISOString().split("T")[0])
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         );
         break;
 
@@ -210,7 +250,62 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
     );
   };
 
-  if (nodes.length === 0) {
+  const handleCreateCard = () => {
+    if (!tabMode) {
+      toast.error(
+        "La création de carte n'est disponible qu'en mode multi-onglets"
+      );
+      return;
+    }
+
+    if (!activeTemplateId) {
+      toast.error("Veuillez d'abord sélectionner un template");
+      return;
+    }
+
+    try {
+      const dbExport = exportForDatabase(activeTemplateId);
+      if (!dbExport) {
+        toast.error("Erreur lors de l'export de la carte");
+        return;
+      }
+
+      const template = useTemplateStore
+        .getState()
+        .templates.find((t) => t.id === activeTemplateId);
+      const filename = `card_${template?.name
+        .toLowerCase()
+        .replace(/\s+/g, "_")}_preview.json`;
+
+      // Add current form data as example values
+      const exportWithExample = {
+        ...dbExport,
+        example_instance: {
+          values: formData,
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      const blob = new Blob([JSON.stringify(exportWithExample, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Carte créée avec les données d'exemple!");
+    } catch (error) {
+      console.error("Error creating card:", error);
+      toast.error("Erreur lors de la création de la carte");
+    }
+  };
+
+  if (storeNodes.length === 0) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -228,27 +323,25 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
         <CardTitle className="text-lg">
           Prévisualisation du formulaire
         </CardTitle>
-        {template && (
+        {storeTemplate && (
           <p className="text-sm text-muted-foreground">
-            Template: {template.code} (v{template.version})
+            Template: {storeTemplate.code} (v{storeTemplate.version})
           </p>
         )}
       </CardHeader>
 
       <CardContent>
-        <ScrollArea className="h-[500px] pr-4">
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-            {rootNodes
-              .sort((a, b) => a.order - b.order)
-              .map((node) => renderField(node))}
+        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+          {rootNodes
+            .sort((a, b) => a.order - b.order)
+            .map((node) => renderField(node))}
 
-            <div className="pt-4 border-t">
-              <Button type="submit" className="w-full">
-                Créer la carte
-              </Button>
-            </div>
-          </form>
-        </ScrollArea>
+          <div className="pt-4 border-t">
+            <Button type="submit" className="w-full" onClick={handleCreateCard}>
+              Créer la carte
+            </Button>
+          </div>
+        </form>
 
         {/* Debug: Show current form data */}
         <details className="mt-4">

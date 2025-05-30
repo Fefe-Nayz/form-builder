@@ -12,12 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Plus } from "lucide-react";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
 import { PARAM_TYPES } from "@/types/graph-builder";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 interface NodeToolboxProps {
   tabMode?: boolean;
@@ -44,13 +45,13 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
   });
   const handleAddNode = () => {
     if (!newNodeForm.key) {
-      alert("Veuillez entrer une clé pour le nœud");
+      toast.error("Veuillez entrer une clé pour le nœud");
       return;
     }
 
     // Check if key already exists
     if (nodes.some((node) => node.key === newNodeForm.key)) {
-      alert("Cette clé existe déjà");
+      toast.error("Cette clé existe déjà");
       return;
     }
 
@@ -84,6 +85,8 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
       label_en: "",
       order: nodes.length,
     });
+
+    toast.success(`Nœud "${newNodeForm.key}" ajouté avec succès!`);
   };
 
   // Show disabled state when in tab mode but no template is active

@@ -47,36 +47,70 @@ export default function GraphBuilderWithTabsPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="h-full"
+          id="main-horizontal-group"
+        >
           {/* Left Sidebar - Split for NodeToolbox and TemplateManager - Only show when template is active */}
           {activeTemplateId && (
             <>
-              <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                <ResizablePanelGroup direction="vertical">
-                  <ResizablePanel defaultSize={50}>
-                    <div className="h-full p-4 border-r border-b overflow-auto">
-                      <NodeToolbox tabMode={true} />
+              <ResizablePanel
+                defaultSize={25}
+                minSize={20}
+                maxSize={40}
+                className="min-w-0"
+                id="left-sidebar-panel"
+                order={1}
+              >
+                <ResizablePanelGroup
+                  direction="vertical"
+                  className="h-full"
+                  id="left-sidebar-vertical-group"
+                >
+                  <ResizablePanel
+                    defaultSize={50}
+                    minSize={25}
+                    className="min-h-0"
+                    id="node-toolbox-panel"
+                    order={1}
+                  >
+                    <div className="h-full border-r border-b overflow-hidden">
+                      <div className="h-full p-4 overflow-auto">
+                        <NodeToolbox tabMode={true} />
+                      </div>
                     </div>
                   </ResizablePanel>
 
-                  <ResizableHandle />
+                  <ResizableHandle id="vertical-resize-handle" />
 
-                  <ResizablePanel defaultSize={50}>
-                    <div className="h-full p-4 border-r overflow-auto">
-                      <TemplateManager />
+                  <ResizablePanel
+                    defaultSize={25}
+                    minSize={25}
+                    className="min-h-0"
+                    id="template-manager-panel"
+                    order={2}
+                  >
+                    <div className="h-full border-r overflow-hidden">
+                      <div className="h-full p-4 overflow-auto">
+                        <TemplateManager />
+                      </div>
                     </div>
                   </ResizablePanel>
                 </ResizablePanelGroup>
               </ResizablePanel>
 
-              <ResizableHandle />
+              <ResizableHandle id="main-horizontal-resize-handle" />
             </>
           )}
 
           {/* Center and Right - Multi-tab area */}
           <ResizablePanel
-            defaultSize={activeTemplateId ? 80 : 100}
-            minSize={70}
+            defaultSize={activeTemplateId ? 75 : 100}
+            minSize={50}
+            className="min-w-0"
+            id="metric-tabs-panel"
+            order={2}
           >
             <MetricTabs />
           </ResizablePanel>

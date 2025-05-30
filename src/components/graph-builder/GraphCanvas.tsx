@@ -15,9 +15,12 @@ import {
   NodeChange,
 } from "@xyflow/react";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 import "@xyflow/react/dist/style.css";
 
 import ParamNodeComponent from "./ParamNodeComponent";
+import FloatingEdge from "./FloatingEdge";
+import FloatingConnectionLine from "./FloatingConnectionLine";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import {
@@ -25,13 +28,28 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 const nodeTypes = {
   paramNode: ParamNodeComponent,
+};
+
+const edgeTypes = {
+  floating: FloatingEdge,
 };
 
 interface GraphCanvasProps {
@@ -99,6 +117,17 @@ export function GraphCanvas({
     isOpen: false,
     connection: null,
   });
+
+  const [replaceDialog, setReplaceDialog] = useState<{
+    isOpen: boolean;
+    connection: Connection | null;
+    childNodeName: string;
+  }>({
+    isOpen: false,
+    connection: null,
+    childNodeName: "",
+  });
+
   const [condition, setCondition] = useState("");
 
   // Convert ParamNodes to ReactFlow nodes
@@ -119,12 +148,10 @@ export function GraphCanvas({
         id: connection.id,
         source: connection.source,
         target: connection.target,
-        type: "smoothstep",
+        type: "floating",
         animated: true,
-        label: connection.condition ? "conditional" : undefined,
-        style: {
-          stroke: connection.condition ? "#3b82f6" : "#6b7280",
-          strokeWidth: 2,
+        data: {
+          condition: connection.condition,
         },
       }));
     } else {
@@ -135,12 +162,10 @@ export function GraphCanvas({
           id: `edge-${node.parent_id}-${node.id}`,
           source: node.parent_id!,
           target: node.id,
-          type: "smoothstep",
+          type: "floating",
           animated: true,
-          label: node.condition ? "conditional" : undefined,
-          style: {
-            stroke: node.condition ? "#3b82f6" : "#6b7280",
-            strokeWidth: 2,
+          data: {
+            condition: node.condition,
           },
         }));
     }
@@ -176,7 +201,12 @@ export function GraphCanvas({
   );
   const handleConnect = useCallback(
     (connection: Connection) => {
-      if (connection.source && connection.target) {
+      if (
+        connection.source &&
+        connection.target &&
+        connection.sourceHandle &&
+        connection.targetHandle
+      ) {
         // Vérifier que les nœuds existent
         const sourceNode = storeNodes.find((n) => n.id === connection.source);
         const targetNode = storeNodes.find((n) => n.id === connection.target);
@@ -185,7 +215,7 @@ export function GraphCanvas({
 
         // Empêcher l'auto-connexion
         if (connection.source === connection.target) {
-          alert("Un nœud ne peut pas se connecter à lui-même !");
+          toast.error("Un nœud ne peut pas se connecter à lui-même !");
           return;
         }
 
@@ -209,7 +239,7 @@ export function GraphCanvas({
           sourceNode.order > targetNode.order ? targetNode : sourceNode;
 
         if (wouldCreateCycle(parentNode.id, childNode.id)) {
-          alert("Cette connexion créerait une boucle cyclique !");
+          toast.error("Cette connexion créerait une boucle cyclique !");
           return;
         }
 
@@ -223,12 +253,13 @@ export function GraphCanvas({
           : childNode.parent_id;
 
         if (hasExistingConnection) {
-          const confirmReplace = confirm(
-            `"${
-              childNode.label_json?.fr || childNode.key
-            }" a déjà un parent. Voulez-vous remplacer cette connexion ?`
-          );
-          if (!confirmReplace) return;
+          // Show replace confirmation dialog instead of window.confirm
+          setReplaceDialog({
+            isOpen: true,
+            connection,
+            childNodeName: childNode.label_json?.fr || childNode.key,
+          });
+          return;
         }
 
         // Show dialog to enter condition for the connection
@@ -258,14 +289,19 @@ export function GraphCanvas({
           multiTabStore.addConnectionToActiveTab({
             source: parentId,
             target: childId,
-            condition: condition || undefined,
+            condition:
+              condition && typeof condition === "string"
+                ? condition.trim() || undefined
+                : undefined,
           });
         } else {
           // Single-tab mode: update node parent_id
           singleTabStore.connectNodes(
             parentId,
             childId,
-            condition || undefined
+            condition && typeof condition === "string"
+              ? condition.trim() || undefined
+              : undefined
           );
         }
       }
@@ -290,6 +326,48 @@ export function GraphCanvas({
     selectNode(null);
     onNodeSelect(null);
   }, [selectNode, onNodeSelect]);
+
+  // Connection validation function
+  const isValidConnection = useCallback((connection: Connection | Edge) => {
+    // Ensure we have all required connection properties
+    if (!connection.source || !connection.target) {
+      return false;
+    }
+
+    // Prevent self-connection
+    if (connection.source === connection.target) {
+      return false;
+    }
+
+    // Allow all valid connections since each handle is bidirectional
+    return true;
+  }, []);
+
+  const handleConfirmReplace = useCallback(() => {
+    const { connection } = replaceDialog;
+    if (connection) {
+      // Proceed with the connection
+      setConnectionDialog({
+        isOpen: true,
+        connection,
+      });
+      setCondition("");
+    }
+    setReplaceDialog({ isOpen: false, connection: null, childNodeName: "" });
+  }, [replaceDialog]);
+
+  const handleCancelReplace = useCallback(() => {
+    setReplaceDialog({ isOpen: false, connection: null, childNodeName: "" });
+  }, []);
+
+  // Default edge styling - blue for connected edges
+  const defaultEdgeOptions = {
+    style: {
+      stroke: "#3b82f6", // blue color
+      strokeWidth: 2,
+    },
+  };
+
   return (
     <div className="h-full w-full">
       <ReactFlow
@@ -300,7 +378,9 @@ export function GraphCanvas({
         onConnect={handleConnect}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         connectionMode={ConnectionMode.Loose}
+        isValidConnection={isValidConnection}
         fitView
         attributionPosition="bottom-left"
         className="bg-background"
@@ -308,6 +388,8 @@ export function GraphCanvas({
         colorMode={
           theme === "dark" ? "dark" : theme === "light" ? "light" : "system"
         }
+        connectionLineComponent={FloatingConnectionLine}
+        defaultEdgeOptions={defaultEdgeOptions}
       >
         <Background gap={16} />
         <Controls />
@@ -394,8 +476,38 @@ export function GraphCanvas({
               <Button onClick={handleConfirmConnection}>Confirmer</Button>
             </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelConnection}>
+              Annuler
+            </Button>
+            <Button onClick={handleConfirmConnection}>Confirmer</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Replace connection confirmation dialog */}
+      <AlertDialog
+        open={replaceDialog.isOpen}
+        onOpenChange={handleCancelReplace}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remplacer la connexion existante
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{replaceDialog.childNodeName}&quot; a déjà un parent.
+              Voulez-vous remplacer cette connexion ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReplace}>
+              Remplacer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

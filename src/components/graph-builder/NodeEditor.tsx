@@ -14,10 +14,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Copy, Plus, X } from "lucide-react";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { ParamNode, PARAM_TYPES, EnumOption } from "@/types/graph-builder";
+import { toast } from "sonner";
 
 interface NodeEditorProps {
   nodeId: string;
@@ -252,7 +254,16 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
   );
 
   const handleMetaChange = useCallback(
-    (key: string, value: string | number | EnumOption[] | undefined) => {
+    (
+      key: string,
+      value:
+        | string
+        | number
+        | boolean
+        | EnumOption[]
+        | Record<string, string>
+        | undefined
+    ) => {
       if (!node) return;
       updateNode(nodeId, {
         meta_json: { ...node.meta_json, [key]: value },
@@ -326,11 +337,17 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
     };
     delete (newNode as Partial<ParamNode>).id;
     addNode(newNode);
+    toast.success(`Nœud "${node.key}" dupliqué avec succès`);
   }, [node, addNode]);
 
   const handleCreateChild = useCallback(
     (option: EnumOption) => {
-      if (!node || !option.id) return;
+      if (!node || !option.id) {
+        toast.error(
+          "Impossible de créer le nœud enfant: option ou nœud invalide"
+        );
+        return;
+      }
 
       // Create a child node for this enum option
       const childNode: Omit<ParamNode, "id"> = {
@@ -359,6 +376,10 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
           condition: `{"==": [{"var": "${node.key}"}, "${option.id}"]}`,
         });
       }
+
+      toast.success(
+        `Nœud enfant créé pour l'option "${option.label_json.fr || option.id}"`
+      );
     },
     [node, addNode, tabMode, multiTabStore]
   );
@@ -519,6 +540,130 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
             rows={3}
             className="font-mono text-sm"
           />
+          <p className="text-xs text-muted-foreground">
+            Condition qui détermine quand ce champ est affiché. Utilise
+            JSON-Logic.
+          </p>
+        </div>
+        {/* Additional Options */}
+        <div className="space-y-4 border-t pt-4">
+          <h4 className="font-medium text-sm">Options avancées</h4>
+
+          {/* Required Field */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="required"
+              checked={node.meta_json?.required || false}
+              onCheckedChange={(checked) =>
+                handleMetaChange("required", checked)
+              }
+            />
+            <Label htmlFor="required" className="text-sm">
+              Champ obligatoire
+            </Label>
+          </div>
+
+          {/* Placeholder */}
+          <div className="space-y-2">
+            <Label>Placeholder</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="placeholder-fr" className="text-xs">
+                  Français
+                </Label>
+                <Input
+                  id="placeholder-fr"
+                  value={node.meta_json?.placeholder?.fr || ""}
+                  onChange={(e) =>
+                    handleMetaChange("placeholder", {
+                      ...node.meta_json?.placeholder,
+                      fr: e.target.value,
+                    })
+                  }
+                  placeholder="ex: Entrez votre nom"
+                />
+              </div>
+              <div>
+                <Label htmlFor="placeholder-en" className="text-xs">
+                  English
+                </Label>
+                <Input
+                  id="placeholder-en"
+                  value={node.meta_json?.placeholder?.en || ""}
+                  onChange={(e) =>
+                    handleMetaChange("placeholder", {
+                      ...node.meta_json?.placeholder,
+                      en: e.target.value,
+                    })
+                  }
+                  placeholder="ex: Enter your name"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Default Value */}
+          {(paramType?.code === "string" ||
+            paramType?.code === "integer" ||
+            paramType?.code === "float" ||
+            paramType?.code === "enum") && (
+            <div className="space-y-2">
+              <Label htmlFor="defaultValue">Valeur par défaut</Label>
+              <Input
+                id="defaultValue"
+                value={node.meta_json?.defaultValue || ""}
+                onChange={(e) =>
+                  handleMetaChange("defaultValue", e.target.value)
+                }
+                placeholder="Valeur sélectionnée par défaut"
+              />
+            </div>
+          )}
+
+          {/* String-specific options */}
+          {paramType?.code === "string" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="maxLength">Longueur maximale</Label>
+                <Input
+                  id="maxLength"
+                  type="number"
+                  value={node.meta_json?.maxLength || ""}
+                  onChange={(e) =>
+                    handleMetaChange(
+                      "maxLength",
+                      parseInt(e.target.value) || undefined
+                    )
+                  }
+                  placeholder="255"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pattern">Pattern de validation (RegEx)</Label>
+                <Input
+                  id="pattern"
+                  value={node.meta_json?.pattern || ""}
+                  onChange={(e) => handleMetaChange("pattern", e.target.value)}
+                  placeholder="ex: ^[A-Za-z0-9]+$"
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="multiline"
+                  checked={node.meta_json?.multiline || false}
+                  onCheckedChange={(checked) =>
+                    handleMetaChange("multiline", checked)
+                  }
+                />
+                <Label htmlFor="multiline" className="text-sm">
+                  Champ multi-lignes (textarea)
+                </Label>
+              </div>
+            </>
+          )}
         </div>{" "}
         {/* Meta (Type-specific) */}
         {paramType?.code === "enum" && (
