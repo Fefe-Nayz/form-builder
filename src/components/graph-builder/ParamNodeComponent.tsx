@@ -16,62 +16,20 @@ interface ParamNodeComponentProps {
 
 const ParamNodeComponent = memo(
   ({ data, selected }: ParamNodeComponentProps) => {
-    const singleTabStore = useGraphBuilderStore();
-    const multiTabStore = useMultiTabGraphBuilderStore();
-
     const paramType = PARAM_TYPES.find((t) => t.id === data.type_id);
 
-    // Determine if we're in tab mode and get the appropriate data
-    const isTabMode = !!multiTabStore.getActiveTab();
-    const nodes = isTabMode
-      ? multiTabStore.getActiveTab()?.nodes || []
-      : singleTabStore.nodes;
-    const connections = isTabMode
-      ? multiTabStore.getActiveTab()?.connections || []
-      : [];
+    // Use the data prop directly instead of fetching from stores
+    // This prevents infinite loops and is more performant
+    const isTabMode = true; // Assume tab mode if this component is rendered
 
-    // Find parent information
-    let parentInfo = null;
-    if (isTabMode) {
-      // Multi-tab mode: use connections
-      const parentConnection = connections.find(
-        (conn) => conn.target === data.id
-      );
-      if (parentConnection) {
-        const parentNode = nodes.find((n) => n.id === parentConnection.source);
-        if (parentNode) {
-          parentInfo = {
-            name:
-              parentNode.label_json?.fr ||
-              parentNode.label_json?.en ||
-              parentNode.key,
-            hasCondition: !!parentConnection.condition,
-          };
-        }
-      }
-    } else {
-      // Single-tab mode: use parent_id
-      if (data.parent_id) {
-        const parentNode = nodes.find((n) => n.id === data.parent_id);
-        if (parentNode) {
-          parentInfo = {
-            name:
-              parentNode.label_json?.fr ||
-              parentNode.label_json?.en ||
-              parentNode.key,
-            hasCondition: !!data.condition,
-          };
-        }
-      }
-    }
-
+    // Simply render the node with the provided data
     const handleStyle =
       "w-3 h-3 !bg-gray-500 border-2 border-white hover:!bg-gray-600 transition-colors";
 
     return (
       <div
         className={cn(
-          "min-w-[200px] transition-all duration-200 relative",
+          "min-w-[200px] max-w-[300px] transition-all duration-200 relative",
           selected && "ring-2 ring-blue-500"
         )}
       >
@@ -127,13 +85,21 @@ const ParamNodeComponent = memo(
           }}
         />
 
-        <Card className="shadow-md">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm truncate" title={data.key}>
+        <Card className="shadow-md w-full">
+          <CardHeader className="pb-2 px-3 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <h3
+                className="font-medium text-sm break-words flex-1 min-w-0 leading-tight"
+                title={data.key}
+                style={{
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                  hyphens: "auto",
+                }}
+              >
                 {data.key}
               </h3>
-              <div className="flex items-center gap-1 ml-2">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {data.condition && (
                   <Badge
                     variant="outline"
@@ -149,22 +115,20 @@ const ParamNodeComponent = memo(
             </div>
           </CardHeader>
 
-          <CardContent className="pt-0">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">
+          <CardContent className="pt-0 px-3 pb-3">
+            <div className="space-y-2">
+              <p
+                className="text-xs text-muted-foreground break-words leading-relaxed"
+                style={{
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
                 {data.label_json?.fr || data.label_json?.en || "No label"}
               </p>
 
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Order: {data.order}</span>
-                {parentInfo && (
-                  <span
-                    className="text-blue-600"
-                    title={`Child of: ${parentInfo.name}`}
-                  >
-                    Child of {parentInfo.name}
-                  </span>
-                )}
+              <div className="flex justify-between items-center text-xs text-muted-foreground gap-2">
+                <span className="flex-shrink-0">Order: {data.order}</span>
               </div>
             </div>
           </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,12 +30,17 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
   const multiTabStore = useMultiTabGraphBuilderStore();
   const { activeTemplateId } = useTemplateStore();
 
-  const addNode = tabMode
-    ? multiTabStore.addNodeToActiveTab
-    : singleTabStore.addNode;
-  const nodes = tabMode
-    ? multiTabStore.getActiveTab()?.nodes || []
-    : singleTabStore.nodes;
+  // Memoize the computed values to prevent infinite re-renders
+  const addNode = useMemo(() => {
+    return tabMode ? multiTabStore.addNodeToActiveTab : singleTabStore.addNode;
+  }, [tabMode, multiTabStore.addNodeToActiveTab, singleTabStore.addNode]);
+
+  const nodes = useMemo(() => {
+    return tabMode
+      ? multiTabStore.getActiveTab()?.nodes || []
+      : singleTabStore.nodes;
+  }, [tabMode, multiTabStore, singleTabStore.nodes]);
+
   const [newNodeForm, setNewNodeForm] = useState({
     key: "",
     type_id: 1,
@@ -43,23 +48,30 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
     label_en: "",
     order: 0,
   });
-  const handleAddNode = () => {
-    if (!newNodeForm.key) {
-      toast.error("Veuillez entrer une clé pour le nœud");
-      return;
-    }
+
+  const handleAddNode = useCallback(() => {
+    // Generate a key if none provided
+    const nodeKey =
+      newNodeForm.key.trim() ||
+      `node_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
     // Check if key already exists
-    if (nodes.some((node) => node.key === newNodeForm.key)) {
-      toast.error("Cette clé existe déjà");
+    if (nodes.some((node) => node.key === nodeKey)) {
+      toast.error("Cette clé existe déjà, une nouvelle clé sera générée");
+      // Generate a new unique key
+      const uniqueKey = `node_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      setNewNodeForm((prev) => ({ ...prev, key: uniqueKey }));
       return;
     }
 
     const newNode = {
-      key: newNodeForm.key,
+      // No need to provide ID - the store will generate it automatically
+      key: nodeKey,
       label_json: {
-        fr: newNodeForm.label_fr || newNodeForm.key,
-        en: newNodeForm.label_en || newNodeForm.key,
+        fr: newNodeForm.label_fr || nodeKey,
+        en: newNodeForm.label_en || nodeKey,
       },
       type_id: newNodeForm.type_id,
       order: newNodeForm.order,
@@ -75,19 +87,101 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
       }),
     };
 
-    addNode(newNode);
+    // The addNode function will automatically generate an ID
+    const nodeId = addNode(newNode);
 
-    // Reset form
+    if (nodeId) {
+      // Reset form
+      setNewNodeForm({
+        key: "",
+        type_id: 1,
+        label_fr: "",
+        label_en: "",
+        order: 0,
+      });
+
+      toast.success(`Nœud "${nodeKey}" ajouté avec succès!`);
+    } else {
+      toast.error("Erreur lors de la création du nœud");
+    }
+  }, [newNodeForm, nodes, addNode]);
+
+  // Memoize form change handlers to prevent re-renders
+  const handleKeyChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewNodeForm((prev) => ({ ...prev, key: e.target.value }));
+    },
+    []
+  );
+
+  const handleTypeChange = useCallback((value: string) => {
+    setNewNodeForm((prev) => ({ ...prev, type_id: parseInt(value) }));
+  }, []);
+
+  const handleLabelFrChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewNodeForm((prev) => ({ ...prev, label_fr: e.target.value }));
+    },
+    []
+  );
+
+  const handleLabelEnChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewNodeForm((prev) => ({ ...prev, label_en: e.target.value }));
+    },
+    []
+  );
+
+  const handleOrderChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewNodeForm((prev) => ({
+        ...prev,
+        order: parseInt(e.target.value) || 0,
+      }));
+    },
+    []
+  );
+
+  // Memoize quick template handlers
+  const handleScopeTemplate = useCallback(() => {
     setNewNodeForm({
-      key: "",
-      type_id: 1,
-      label_fr: "",
-      label_en: "",
-      order: nodes.length,
+      key: "scope",
+      type_id: 4, // enum
+      label_fr: "Périmètre",
+      label_en: "Scope",
+      order: 0,
     });
+  }, []);
 
-    toast.success(`Nœud "${newNodeForm.key}" ajouté avec succès!`);
-  };
+  const handleSubjectTemplate = useCallback(() => {
+    setNewNodeForm({
+      key: "subject_id",
+      type_id: 7, // reference
+      label_fr: "Matière",
+      label_en: "Subject",
+      order: 1,
+    });
+  }, []);
+
+  const handleWindowTemplate = useCallback(() => {
+    setNewNodeForm({
+      key: "window_type",
+      type_id: 4, // enum
+      label_fr: "Fenêtre temporelle",
+      label_en: "Time Window",
+      order: 2,
+    });
+  }, []);
+
+  const handleNumberTemplate = useCallback(() => {
+    setNewNodeForm({
+      key: "n",
+      type_id: 1, // integer
+      label_fr: "Nombre",
+      label_en: "Number",
+      order: 3,
+    });
+  }, []);
 
   // Show disabled state when in tab mode but no template is active
   if (tabMode && !activeTemplateId) {
@@ -121,9 +215,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
           <Input
             id="new-key"
             value={newNodeForm.key}
-            onChange={(e) =>
-              setNewNodeForm((prev) => ({ ...prev, key: e.target.value }))
-            }
+            onChange={handleKeyChange}
             placeholder="ex: subject_id"
           />
         </div>
@@ -132,9 +224,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
           <Label htmlFor="new-type">Type</Label>
           <Select
             value={newNodeForm.type_id.toString()}
-            onValueChange={(value) =>
-              setNewNodeForm((prev) => ({ ...prev, type_id: parseInt(value) }))
-            }
+            onValueChange={handleTypeChange}
           >
             <SelectTrigger>
               <SelectValue />
@@ -155,12 +245,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             <Input
               id="new-label-fr"
               value={newNodeForm.label_fr}
-              onChange={(e) =>
-                setNewNodeForm((prev) => ({
-                  ...prev,
-                  label_fr: e.target.value,
-                }))
-              }
+              onChange={handleLabelFrChange}
               placeholder="Matière"
             />
           </div>
@@ -169,12 +254,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             <Input
               id="new-label-en"
               value={newNodeForm.label_en}
-              onChange={(e) =>
-                setNewNodeForm((prev) => ({
-                  ...prev,
-                  label_en: e.target.value,
-                }))
-              }
+              onChange={handleLabelEnChange}
               placeholder="Subject"
             />
           </div>
@@ -186,12 +266,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             id="new-order"
             type="number"
             value={newNodeForm.order}
-            onChange={(e) =>
-              setNewNodeForm((prev) => ({
-                ...prev,
-                order: parseInt(e.target.value) || 0,
-              }))
-            }
+            onChange={handleOrderChange}
           />
         </div>
 
@@ -207,15 +282,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                setNewNodeForm({
-                  key: "scope",
-                  type_id: 4, // enum
-                  label_fr: "Périmètre",
-                  label_en: "Scope",
-                  order: 0,
-                })
-              }
+              onClick={handleScopeTemplate}
               className="w-full justify-start"
             >
               Scope (enum)
@@ -224,15 +291,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                setNewNodeForm({
-                  key: "subject_id",
-                  type_id: 7, // reference
-                  label_fr: "Matière",
-                  label_en: "Subject",
-                  order: 1,
-                })
-              }
+              onClick={handleSubjectTemplate}
               className="w-full justify-start"
             >
               Subject ID (reference)
@@ -241,15 +300,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                setNewNodeForm({
-                  key: "window_type",
-                  type_id: 4, // enum
-                  label_fr: "Fenêtre temporelle",
-                  label_en: "Time Window",
-                  order: 2,
-                })
-              }
+              onClick={handleWindowTemplate}
               className="w-full justify-start"
             >
               Window Type (enum)
@@ -258,15 +309,7 @@ export function NodeToolbox({ tabMode = false }: NodeToolboxProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                setNewNodeForm({
-                  key: "n",
-                  type_id: 1, // integer
-                  label_fr: "Nombre",
-                  label_en: "Number",
-                  order: 3,
-                })
-              }
+              onClick={handleNumberTemplate}
               className="w-full justify-start"
             >
               N (integer)

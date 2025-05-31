@@ -26,6 +26,8 @@ import {
   ChevronDown,
   Database,
   BookOpen,
+  FileSpreadsheet,
+  Smartphone,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -59,6 +61,7 @@ export function ProjectManager() {
     exportCompleteExample,
     setActiveTemplate,
     addMetricToTemplate,
+    exportForRealApp,
   } = useTemplateStore();
 
   const { getActiveTab } = useMultiTabGraphBuilderStore();
@@ -229,8 +232,15 @@ export function ProjectManager() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
-        importTemplate(data);
-        toast.success("Template importé avec succès");
+        const templateId = importTemplate(data);
+        setActiveTemplate(templateId);
+
+        // Remove manual tab creation - let GraphToolbar handle it via loadTabsFromTemplate
+        toast.success(
+          `Template importé avec succès${
+            data.metrics ? ` avec ${data.metrics.length} métriques` : ""
+          }`
+        );
       } catch (error) {
         console.error("Import error:", error);
         toast.error("Format JSON invalide. Vérifiez votre fichier d'import.");
@@ -247,25 +257,8 @@ export function ProjectManager() {
       const templateId = importTemplate(SAMPLE_MEAN_TEMPLATE);
       setActiveTemplate(templateId);
 
-      // Load the metrics into tabs
-      const { createTab, importGraph } =
-        useMultiTabGraphBuilderStore.getState();
-      SAMPLE_MEAN_TEMPLATE.metrics.forEach((metric) => {
-        const tabId = createTab(metric.name);
-        importGraph(tabId, {
-          nodes: metric.nodes || [],
-          connections: metric.connections || [],
-          position: metric.position || { x: 0, y: 0, zoom: 1 },
-        });
-      });
-
-      toast.success(
-        `Template d'exemple chargé avec succès ! ${
-          SAMPLE_MEAN_TEMPLATE.metrics[0]?.nodes.length || 0
-        } nœuds et ${
-          SAMPLE_MEAN_TEMPLATE.metrics[0]?.connections.length || 0
-        } connexions.`
-      );
+      // Remove manual tab creation - let GraphToolbar handle it via loadTabsFromTemplate
+      toast.success(`Template d'exemple chargé avec succès !`);
     } catch (error) {
       console.error("Error loading sample:", error);
       toast.error("Erreur lors du chargement du template d'exemple");
@@ -290,6 +283,42 @@ export function ProjectManager() {
 
   const handleSelectTemplate = (templateId: string) => {
     setActiveTemplate(templateId);
+
+    // Remove manual tab creation - let GraphToolbar handle it via loadTabsFromTemplate
+    const template = templates.find((t) => t.id === templateId);
+    if (template && template.metrics && template.metrics.length > 0) {
+      toast.success(
+        `Template sélectionné avec ${template.metrics.length} métriques chargées`
+      );
+    }
+  };
+
+  const handleExportForRealApp = (templateId: string) => {
+    const appIntegration = exportForRealApp(templateId);
+    if (!appIntegration) {
+      toast.error("Erreur lors de l'export pour l'application réelle");
+      return;
+    }
+
+    const template = templates.find((t) => t.id === templateId);
+    const filename = `app_integration_${template?.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")}_v${template?.version}.json`;
+
+    const blob = new Blob([JSON.stringify(appIntegration, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(
+      "Export pour application réelle créé avec succès! Inclut: schéma DB, définitions de formulaires et données d'exemple."
+    );
   };
 
   return (
@@ -325,7 +354,7 @@ export function ProjectManager() {
             <BookOpen className="h-4 w-4 mr-1" />
             Charger l&apos;exemple
           </Button>
-          {activeTemplateId && (
+          {/* {activeTemplateId && (
             <Button
               variant="outline"
               onClick={() => handleSaveCurrentTabToTemplate()}
@@ -334,7 +363,7 @@ export function ProjectManager() {
               <Save className="h-4 w-4 mr-1" />
               Sauvegarder l&apos;onglet
             </Button>
-          )}
+          )} */}
         </div>
 
         <div className="border rounded-lg">
@@ -421,20 +450,30 @@ export function ProjectManager() {
                               handleExportCompleteExample(template.id);
                             }}
                           >
-                            <Database className="h-4 w-4 mr-2" />
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
                             Export avec exemples
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportForRealApp(template.id);
+                            }}
+                          >
+                            <Smartphone className="h-4 w-4 mr-2" />
+                            Export pour app réelle
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
 
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 text-destructive transition-all duration-200 hover:!bg-destructive/20 hover:!text-destructive-foreground "
+                        variant="destructive"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteTemplate(template.id);
                         }}
+                        className="h-8 w-8 p-0"
+                        title="Supprimer"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

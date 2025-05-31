@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +14,21 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
+import { useGraphBuilderStore } from "@/stores/graph-builder";
+import { useTheme } from "next-themes";
 import {
   Plus,
   X,
@@ -22,7 +36,11 @@ import {
   Check,
   X as XIcon,
   AlertCircle,
-  ArrowUp,
+  Save,
+  Database,
+  RotateCcw,
+  Download,
+  Upload,
 } from "lucide-react";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeEditor } from "./NodeEditor";
@@ -48,16 +66,30 @@ export function MetricTabs({ className }: MetricTabsProps) {
     deleteTab,
     renameTab,
     setActiveTab,
+    setActiveTabById,
     getActiveTab,
     setSelectedNodeInActiveTab,
   } = useMultiTabGraphBuilderStore();
 
-  const { activeTemplateId, addMetricToTemplate, createTemplate } =
-    useTemplateStore();
+  const {
+    activeTemplateId,
+    addMetricToTemplate,
+    saveMetricToTemplate,
+    createTemplate,
+    getActiveTemplate,
+    updateMetricInTemplate,
+  } = useTemplateStore();
+
+  const singleTabStore = useGraphBuilderStore();
+  const multiTabStore = useMultiTabGraphBuilderStore();
+  const templateStore = useTemplateStore();
+  const { theme } = useTheme();
 
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  const [autosave, setAutosave] = useState(true);
+  const [showStorageDialog, setShowStorageDialog] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     version: "1.0",
@@ -65,29 +97,75 @@ export function MetricTabs({ className }: MetricTabsProps) {
   });
 
   const activeTab = getActiveTab();
+  const activeTemplate = getActiveTemplate();
+
+  // Simple autosave without complex dependencies
+  const handleAutosaveChange = (checked: boolean) => {
+    setAutosave(checked);
+  };
+
+  // Simplified template loading - only when template actually changes
+  useEffect(() => {
+    // Template switching is now handled by loadTabsFromTemplate in the store
+    // This useEffect was causing conflicts and duplicate tabs
+    // The GraphToolbar handles template switching via loadTabsFromTemplate
+  }, [activeTemplateId]); // Keep dependency but remove the logic
+
+  // Filter tabs to show only those belonging to the active template
+  const filteredTabs = React.useMemo(() => {
+    if (!activeTemplateId || !activeTemplate) return [];
+
+    // Filter tabs to show only those that exist as metrics in the active template
+    const filtered = tabs.filter((tab) =>
+      activeTemplate.metrics.some((metric) => metric.id === tab.id)
+    );
+
+    return filtered;
+  }, [tabs, activeTemplateId, activeTemplate]);
+
+  // Ensure activeTabId points to a valid tab from filteredTabs
+  React.useEffect(() => {
+    if (filteredTabs.length > 0) {
+      // Check if current activeTabId is in the filtered tabs
+      const isActiveTabValid = filteredTabs.some(
+        (tab) => tab.id === activeTabId
+      );
+
+      if (!isActiveTabValid) {
+        // Set the first filtered tab as active
+        console.log(
+          "Setting first filtered tab as active:",
+          filteredTabs[0].id
+        );
+        setActiveTab(filteredTabs[0].id);
+      }
+    }
+  }, [filteredTabs, activeTabId, setActiveTab]);
 
   const handleCreateTab = () => {
     if (!activeTemplateId) {
       toast.error("Veuillez d'abord sélectionner ou créer un template");
       return;
     }
+
     const newTabId = createTab();
 
-    // Add the new tab to the active template
-    if (activeTemplateId) {
-      const tab = tabs.find((t) => t.id === newTabId);
-      if (tab) {
-        addMetricToTemplate(activeTemplateId, tab);
-      }
+    // Immediately add the new tab to the active template
+    // Use a more reliable approach by accessing the store state directly
+    const newTab = useMultiTabGraphBuilderStore
+      .getState()
+      .tabs.find((t) => t.id === newTabId);
+    if (newTab && activeTemplateId) {
+      addMetricToTemplate(activeTemplateId, newTab);
+      toast.success("Nouvelle métrique créée et ajoutée au template");
     }
   };
 
   const handleDeleteTab = (tabId: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    if (tabs.length > 1) {
-      deleteTab(tabId);
-    }
+    // Allow closing any tab, including the last one
+    deleteTab(tabId);
   };
 
   const handleStartRename = (
@@ -109,7 +187,22 @@ export function MetricTabs({ className }: MetricTabsProps) {
       typeof editingName === "string" &&
       editingName.trim()
     ) {
-      renameTab(editingTabId, editingName.trim());
+      const trimmedName = editingName.trim();
+
+      // Rename the tab
+      renameTab(editingTabId, trimmedName);
+
+      // Also update the metric name in the template if it exists
+      if (activeTemplateId && activeTemplate) {
+        const metric = activeTemplate.metrics.find(
+          (m) => m.id === editingTabId
+        );
+        if (metric) {
+          updateMetricInTemplate(activeTemplateId, editingTabId, {
+            name: trimmedName,
+          });
+        }
+      }
     }
     setEditingTabId(null);
     setEditingName("");
@@ -149,13 +242,6 @@ export function MetricTabs({ className }: MetricTabsProps) {
     setNewTemplate({ name: "", version: "1.0", description: "" });
     toast.success("Template créé avec succès");
   };
-
-  // Create first tab if none exist
-  React.useEffect(() => {
-    if (tabs.length === 0 && activeTemplateId) {
-      createTab("Métrique 1");
-    }
-  }, [tabs.length, createTab, activeTemplateId]);
 
   // No template selected
   if (!activeTemplateId) {
@@ -259,11 +345,13 @@ export function MetricTabs({ className }: MetricTabsProps) {
     );
   }
 
-  if (tabs.length === 0) {
+  if (filteredTabs.length === 0 && activeTemplateId) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Aucune métrique créée</p>
+          <p className="text-muted-foreground mb-4">
+            Aucune métrique dans ce template
+          </p>
           <Button onClick={handleCreateTab}>
             <Plus className="h-4 w-4 mr-2" />
             Créer une métrique
@@ -282,111 +370,112 @@ export function MetricTabs({ className }: MetricTabsProps) {
       >
         {/* Custom Tab Header */}
         <div className="border-b bg-background px-4 py-2">
-          <div className="flex items-center gap-2">
-            <TabsList className="h-auto p-1 bg-muted/30">
-              {tabs.map((tab) => (
-                <div key={tab.id} className="relative group">
-                  <TabsTrigger
-                    value={tab.id}
-                    className="px-3 py-2 relative pr-12 min-w-[120px] flex items-center justify-start"
-                  >
-                    {editingTabId === tab.id ? (
-                      <div
-                        className="flex items-center gap-1 w-full"
-                        onClick={(e) => e.stopPropagation()}
+          <div className="flex items-center">
+            {/* Container for tabs and buttons */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {/* Scrollable Tab List */}
+              <div className="overflow-x-auto scroll-area flex-shrink min-w-0">
+                <TabsList className="h-auto p-1 bg-muted/30 inline-flex">
+                  {filteredTabs.map((tab) => (
+                    <div key={tab.id} className="relative group flex-shrink-0">
+                      <TabsTrigger
+                        value={tab.id}
+                        className="px-3 py-2 relative pr-12 min-w-[120px] flex items-center justify-start"
                       >
-                        <Input
-                          value={editingName}
-                          onChange={(e) =>
-                            setEditingName(String(e.target.value || ""))
-                          }
-                          onKeyDown={handleKeyDown}
-                          className="h-6 px-1 text-xs w-20"
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 w-5 p-0 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400"
-                          onClick={handleSaveRename}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-                          onClick={handleCancelRename}
-                        >
-                          <XIcon className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <span className="truncate">
-                          {String(tab.name || "")}
-                        </span>
-                        <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground"
-                            onClick={(e) =>
-                              handleStartRename(
-                                tab.id,
-                                String(tab.name || ""),
-                                e
-                              )
-                            }
+                        {editingTabId === tab.id ? (
+                          <div
+                            className="flex items-center gap-1 w-full"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          {tabs.length > 1 && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/20 hover:text-destructive"
-                              onClick={(e) => handleDeleteTab(tab.id, e)}
+                            <Input
+                              value={editingName}
+                              onChange={(e) =>
+                                setEditingName(String(e.target.value || ""))
+                              }
+                              onKeyDown={handleKeyDown}
+                              className="h-6 px-1 text-xs w-20"
+                              autoFocus
+                            />
+                            <div
+                              className="h-5 w-5 p-0 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                              onClick={handleSaveRename}
                             >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </TabsTrigger>
-                </div>
-              ))}
-            </TabsList>
+                              <Check className="h-3 w-3" />
+                            </div>
+                            <div
+                              className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                              onClick={handleCancelRename}
+                            >
+                              <XIcon className="h-3 w-3" />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="truncate">
+                              {String(tab.name || "")}
+                            </span>
+                            <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                              <div
+                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                onClick={(e) =>
+                                  handleStartRename(
+                                    tab.id,
+                                    String(tab.name || ""),
+                                    e
+                                  )
+                                }
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </div>
+                              {/* Always show close button, even for the last tab */}
+                              <div
+                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/20 hover:text-destructive inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                onClick={(e) => handleDeleteTab(tab.id, e)}
+                              >
+                                <X className="h-3 w-3" />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </TabsTrigger>
+                    </div>
+                  ))}
+                </TabsList>
+              </div>
 
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCreateTab}
-              className="h-8 px-2 hover:bg-primary/10 hover:text-primary hover:border-primary/50"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+              {/* Action Buttons - positioned right after tabs */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCreateTab}
+                  className="h-8 px-2 hover:bg-primary/10 hover:text-primary hover:border-primary/50"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
 
-            {activeTemplateId && activeTab && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  addMetricToTemplate(activeTemplateId, activeTab);
-                  toast.success("Métrique sauvegardée dans le template");
-                }}
-                className="h-8 px-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 dark:hover:bg-green-900/20 dark:hover:text-green-400"
-                title="Sauvegarder la métrique actuelle dans le template"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            )}
+                {/* {activeTemplateId && activeTab && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      saveMetricToTemplate(activeTemplateId, activeTab);
+                      toast.success("Métrique sauvegardée dans le template");
+                    }}
+                    className="h-8 px-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 dark:hover:bg-green-900/20 dark:hover:text-green-400"
+                    title="Sauvegarder manuellement la métrique actuelle dans le template"
+                    disabled={autosave}
+                  >
+                    <Save className="h-4 w-4" />
+                  </Button>
+                )} */}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Tab Content */}
-        {tabs.map((tab) => (
+        {filteredTabs.map((tab) => (
           <TabsContent
             key={tab.id}
             value={tab.id}

@@ -42,7 +42,8 @@ export const CardInstanceSchema = z.object({
   user_id: z.number(),
   name: z.string(),
   created_at: z.string(),
-  favorite: z.boolean()
+  favorite: z.boolean(),
+  ui_json: z.record(z.unknown()).optional()
 });
 
 export const CardParamValueSchema = z.object({
@@ -58,4 +59,40 @@ export const CompleteExportSchema = DatabaseExportSchema.extend({
 
 export type CardInstance = z.infer<typeof CardInstanceSchema>;
 export type CardParamValue = z.infer<typeof CardParamValueSchema>;
-export type CompleteExport = z.infer<typeof CompleteExportSchema>; 
+export type CompleteExport = z.infer<typeof CompleteExportSchema>;
+
+// Form generation schema for real app integration
+export const FormDefinitionSchema = z.object({
+  id: z.string(),
+  template_id: z.number(),
+  form_steps: z.array(z.object({
+    id: z.string(),
+    title: z.record(z.string()),
+    description: z.record(z.string()).optional(),
+    fields: z.array(z.object({
+      node_id: z.string(),
+      widget_type: z.string(),
+      validation: z.record(z.unknown()).optional(),
+      dependencies: z.array(z.string()).optional()
+    }))
+  })),
+  validation_rules: z.array(z.object({
+    node_id: z.string(),
+    rule_type: z.enum(['required', 'min', 'max', 'pattern', 'custom']),
+    rule_value: z.unknown(),
+    error_message: z.record(z.string())
+  }))
+});
+
+export type FormDefinition = z.infer<typeof FormDefinitionSchema>;
+
+// Real app integration schema
+export const AppIntegrationSchema = z.object({
+  database_export: DatabaseExportSchema,
+  form_definitions: z.array(FormDefinitionSchema),
+  sample_instances: z.array(CardInstanceSchema).optional(),
+  sample_values: z.array(CardParamValueSchema).optional(),
+  migration_notes: z.string().optional()
+});
+
+export type AppIntegration = z.infer<typeof AppIntegrationSchema>; 

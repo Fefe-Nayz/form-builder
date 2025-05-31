@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { Template, MetricTab } from '@/types/template';
 import { GraphTab } from '@/stores/multi-tab-graph-builder';
-import { DatabaseExport, CompleteExport, CardInstance, CardParamValue } from '@/types/database-export';
+import { DatabaseExport, CompleteExport, CardInstance, CardParamValue, AppIntegration, FormDefinition } from '@/types/database-export';
 import { PARAM_TYPES } from '@/types/graph-builder';
+import JsonLogic from 'json-logic-js';
 
 interface TemplateStore {
   templates: Template[];
@@ -17,7 +18,7 @@ interface TemplateStore {
   
   // NEW: Database export for real app
   exportForDatabase: (templateId: string) => DatabaseExport | null;
-  exportCompleteExample: (templateId: string, includeExamples?: boolean) => CompleteExport | null;
+  exportCompleteExample: (templateId: string, includeInstances?: boolean) => CompleteExport | null;
   
   // Active template operations
   getActiveTemplate: () => Template | null;
@@ -27,10 +28,16 @@ interface TemplateStore {
   addMetricToTemplate: (templateId: string, metric: GraphTab) => void;
   updateMetricInTemplate: (templateId: string, metricId: string, updates: Partial<MetricTab>) => void;
   deleteMetricFromTemplate: (templateId: string, metricId: string) => void;
+  saveMetricToTemplate: (templateId: string, metric: GraphTab) => void;
+  transferMetricsToTemplate: (sourceTemplateId: string, targetTemplateId: string, metricIds: string[]) => void;
 
   // Convert between GraphTab and MetricTab
   convertGraphTabToMetricTab: (graphTab: GraphTab) => MetricTab;
   convertMetricTabToGraphTab: (metricTab: MetricTab) => GraphTab;
+
+  generateSampleFormData: (rootNodeId: string, allNodes: any[]) => Record<string, any>;
+  exportForRealApp: (templateId: string) => AppIntegration | null;
+  buildFormSteps: (rootNodeId: string, allNodes: any[]) => any[];
 }
 
 export const useTemplateStore = create<TemplateStore>((set, get) => ({
@@ -164,84 +171,126 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
     return dbExport;
   },
 
-  exportCompleteExample: (templateId: string, includeExamples = false): CompleteExport | null => {
+  exportCompleteExample: (templateId: string, includeInstances?: boolean): CompleteExport | null => {
     const dbExport = get().exportForDatabase(templateId);
     if (!dbExport) return null;
 
     const completeExport: CompleteExport = {
-      ...dbExport
+      ...dbExport,
+      card_instances: undefined,
+      card_param_values: undefined
     };
 
-    if (includeExamples && dbExport.card_templates.length > 0) {
-      // Generate example card instances and param values
-      const cardInstances: CardInstance[] = [];
-      const cardParamValues: CardParamValue[] = [];
+    if (includeInstances) {
+      // Generate sample card instances and values
+      const sampleInstances: CardInstance[] = [];
+      const sampleValues: CardParamValue[] = [];
 
       dbExport.card_templates.forEach((template, templateIndex) => {
-        const cardId = templateIndex + 1;
-        
-        // Create example card instance
-        cardInstances.push({
-          id: cardId,
-          template_id: template.id,
-          user_id: 123, // Example user ID
-          name: `Exemple ${template.code}`,
-          created_at: new Date().toISOString(),
-          favorite: false
-        });
+        // Create 2 sample instances per template
+        for (let i = 0; i < 2; i++) {
+          const cardId = templateIndex * 2 + i + 1;
+          const instance: CardInstance = {
+            id: cardId,
+            template_id: template.id,
+            user_id: 123 + i,
+            name: `Exemple ${template.metric} ${i + 1}`,
+            created_at: new Date().toISOString(),
+            favorite: i === 0,
+            ui_json: {
+              title: `${template.metric} personnalisée`,
+              description: "Description générée automatiquement",
+              icon: template.icon_default || "mdi:chart-line",
+              variant: "info"
+            }
+          };
+          sampleInstances.push(instance);
 
-        // Create example param values for this card
-        const templateNodes = dbExport.param_nodes.filter(node => 
-          node.id === template.root_id || 
-          dbExport.param_nodes.some(n => n.parent_id === template.root_id && n.id === node.id)
-        );
-
-        templateNodes.forEach(node => {
-          let exampleValue = "";
-          
-          // Generate example values based on param type
-          switch (node.type_id) {
-            case 1: // integer
-              exampleValue = "30";
-              break;
-            case 2: // float
-              exampleValue = "15.5";
-              break;
-            case 3: // string
-              exampleValue = "exemple";
-              break;
-            case 4: // enum
-              const options = node.meta_json?.enumOptions as { id: string; label_json: Record<string, string> }[];
-              if (options && options.length > 0) {
-                exampleValue = options[0].id;
+          // Generate sample param values for visible nodes
+          const rootNode = dbExport.param_nodes.find(n => n.id === template.root_id);
+          if (rootNode) {
+            const sampleData = get().generateSampleFormData(template.root_id, dbExport.param_nodes);
+            Object.entries(sampleData).forEach(([key, value]) => {
+              const node = dbExport.param_nodes.find(n => n.key === key);
+              if (node) {
+                sampleValues.push({
+                  card_id: cardId,
+                  param_node_id: node.id,
+                  value: String(value)
+                });
               }
-              break;
-            case 5: // date
-              exampleValue = new Date().toISOString().split('T')[0];
-              break;
-            case 6: // boolean
-              exampleValue = "true";
-              break;
-            case 7: // reference
-              exampleValue = "17"; // Example reference ID
-              break;
-          }
-
-          if (exampleValue) {
-            cardParamValues.push({
-              card_id: cardId,
-              param_node_id: node.id,
-              value: exampleValue
             });
           }
-        });
+        }
       });
 
-      completeExport.card_instances = cardInstances;
-      completeExport.card_param_values = cardParamValues;
+      completeExport.card_instances = sampleInstances;
+      completeExport.card_param_values = sampleValues;
     }
 
     return completeExport;
+  },
+
+  generateSampleFormData: (rootNodeId: string, allNodes: any[]): Record<string, any> => {
+    const sampleData: Record<string, any> = {};
+    
+    const processNode = (nodeId: string, currentData: Record<string, any>) => {
+      const node = allNodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      // Generate sample value based on type
+      let sampleValue: any;
+      switch (node.type_id) {
+        case 1: // integer
+          sampleValue = node.meta_json?.min || 1;
+          break;
+        case 2: // float
+          sampleValue = 12.5;
+          break;
+        case 3: // string
+          sampleValue = `Sample ${node.key}`;
+          break;
+        case 4: // enum
+          const options = node.meta_json?.enumOptions || [];
+          sampleValue = options[0]?.id || options[0]?.value || "default";
+          break;
+        case 5: // date
+          sampleValue = new Date().toISOString().split('T')[0];
+          break;
+        case 6: // boolean
+          sampleValue = true;
+          break;
+        case 7: // reference
+          sampleValue = "17"; // Sample subject ID
+          break;
+        default:
+          sampleValue = "sample";
+      }
+
+      currentData[node.key] = sampleValue;
+
+      // Process children if they would be visible
+      const children = allNodes.filter(n => n.parent_id === nodeId);
+      children.forEach(child => {
+        if (child.condition) {
+          try {
+            const condition = JSON.parse(child.condition);
+            const isVisible = JsonLogic.apply(condition, currentData);
+            if (isVisible) {
+              processNode(child.id, currentData);
+            }
+          } catch (e) {
+            // If condition fails, include the node anyway
+            processNode(child.id, currentData);
+          }
+        } else {
+          processNode(child.id, currentData);
+        }
+      });
+    };
+
+    processNode(rootNodeId, sampleData);
+    return sampleData;
   },
 
   getActiveTemplate: () => {
@@ -301,6 +350,66 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
     }));
   },
 
+  saveMetricToTemplate: (templateId: string, graphTab: GraphTab) => {
+    const metricTab = get().convertGraphTabToMetricTab(graphTab);
+    
+    set(state => ({
+      templates: state.templates.map(template => 
+        template.id === templateId 
+          ? { 
+              ...template, 
+              metrics: template.metrics.map(existing => 
+                existing.id === metricTab.id 
+                  ? metricTab  // Replace existing metric
+                  : existing
+              ).concat(
+                template.metrics.find(existing => existing.id === metricTab.id) 
+                  ? [] // Don't add if it already exists
+                  : [metricTab] // Add if it's new
+              ),
+              updatedAt: new Date().toISOString() 
+            } 
+          : template
+      )
+    }));
+  },
+
+  transferMetricsToTemplate: (sourceTemplateId: string, targetTemplateId: string, metricIds: string[]) => {
+    const state = get();
+    const sourceTemplate = state.templates.find(t => t.id === sourceTemplateId);
+    const targetTemplate = state.templates.find(t => t.id === targetTemplateId);
+    
+    if (!sourceTemplate || !targetTemplate) return;
+    
+    const metricsToTransfer = sourceTemplate.metrics.filter(metric => 
+      metricIds.includes(metric.id)
+    );
+    
+    set(state => ({
+      templates: state.templates.map(template => {
+        if (template.id === targetTemplateId) {
+          // Add metrics to target template, avoiding duplicates
+          const existingIds = template.metrics.map(m => m.id);
+          const newMetrics = metricsToTransfer.filter(m => !existingIds.includes(m.id));
+          return {
+            ...template,
+            metrics: [...template.metrics, ...newMetrics],
+            updatedAt: new Date().toISOString()
+          };
+        }
+        if (template.id === sourceTemplateId) {
+          // Remove metrics from source template
+          return {
+            ...template,
+            metrics: template.metrics.filter(metric => !metricIds.includes(metric.id)),
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return template;
+      })
+    }));
+  },
+
   convertGraphTabToMetricTab: (graphTab: GraphTab): MetricTab => {
     return {
       id: graphTab.id,
@@ -320,5 +429,120 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
       selectedNodeId: null,
       position: metricTab.position
     };
+  },
+
+  exportForRealApp: (templateId: string): AppIntegration | null => {
+    const dbExport = get().exportForDatabase(templateId);
+    if (!dbExport) return null;
+
+    const template = get().templates.find(t => t.id === templateId);
+    if (!template) return null;
+
+    // Generate form definitions for each card template
+    const formDefinitions: FormDefinition[] = dbExport.card_templates.map(cardTemplate => {
+      const rootNode = dbExport.param_nodes.find(n => n.id === cardTemplate.root_id);
+      if (!rootNode) {
+        throw new Error(`Root node not found for template ${cardTemplate.code}`);
+      }
+
+      // Build form steps based on node hierarchy
+      const formSteps = get().buildFormSteps(cardTemplate.root_id, dbExport.param_nodes);
+      
+      // Generate validation rules
+      const validationRules = dbExport.param_nodes
+        .filter(node => node.meta_json?.required || node.meta_json?.min || node.meta_json?.max)
+        .map(node => ({
+          node_id: node.id,
+          rule_type: node.meta_json?.required ? 'required' as const : 
+                    node.meta_json?.min ? 'min' as const : 'max' as const,
+          rule_value: node.meta_json?.required ? true : 
+                     node.meta_json?.min || node.meta_json?.max,
+          error_message: {
+            fr: `Le champ ${node.label_json?.fr || node.key} est invalide`,
+            en: `Field ${node.label_json?.en || node.key} is invalid`
+          }
+        }));
+
+      return {
+        id: `form_${cardTemplate.code}`,
+        template_id: cardTemplate.id,
+        form_steps: formSteps,
+        validation_rules: validationRules
+      };
+    });
+
+    // Generate sample instances and values
+    const completeExport = get().exportCompleteExample(templateId, true);
+
+    return {
+      database_export: dbExport,
+      form_definitions: formDefinitions,
+      sample_instances: completeExport?.card_instances || [],
+      sample_values: completeExport?.card_param_values || [],
+      migration_notes: `
+Template: ${template.name} v${template.version}
+Generated: ${new Date().toISOString()}
+
+Integration steps:
+1. Import param_types and param_nodes into your database
+2. Import card_templates 
+3. Use form_definitions to render dynamic forms
+4. Reference sample_instances and sample_values for testing
+
+Note: Ensure your app handles JSON-Logic evaluation for conditional field display.
+      `
+    };
+  },
+
+  buildFormSteps: (rootNodeId: string, allNodes: any[]): any[] => {
+    const steps: any[] = [];
+    const visited = new Set<string>();
+
+    const buildStep = (nodeId: string, stepTitle: string) => {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+
+      const node = allNodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      const children = allNodes.filter(n => n.parent_id === nodeId);
+      const directFields = children.filter(child => 
+        !allNodes.some(n => n.parent_id === child.id)
+      );
+
+      const step = {
+        id: `step_${nodeId}`,
+        title: node.label_json || { fr: stepTitle, en: stepTitle },
+        description: node.help_json,
+        fields: [
+          {
+            node_id: nodeId,
+            widget_type: PARAM_TYPES.find(t => t.id === node.type_id)?.widget || 'text',
+            validation: node.meta_json,
+            dependencies: []
+          },
+          ...directFields.map(field => ({
+            node_id: field.id,
+            widget_type: PARAM_TYPES.find(t => t.id === field.type_id)?.widget || 'text',
+            validation: field.meta_json,
+            dependencies: field.condition ? [nodeId] : []
+          }))
+        ]
+      };
+
+      steps.push(step);
+
+      // Process children that have their own children (sub-steps)
+      children.filter(child => 
+        allNodes.some(n => n.parent_id === child.id)
+      ).forEach(child => {
+        buildStep(child.id, child.label_json?.fr || child.key);
+      });
+    };
+
+    const rootNode = allNodes.find(n => n.id === rootNodeId);
+    buildStep(rootNodeId, rootNode?.label_json?.fr || 'Configuration');
+
+    return steps;
   }
 }));

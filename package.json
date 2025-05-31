@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.4",
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -39,12 +40,16 @@
     "@rjsf/core": "^6.0.0-beta.10",
     "@rjsf/utils": "^6.0.0-beta.10",
     "@rjsf/validator-ajv8": "^6.0.0-beta.10",
+    "@types/dagre": "^0.7.52",
     "@types/json-logic-js": "^2.0.8",
     "@xyflow/react": "^12.6.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "d3-hierarchy": "^3.1.2",
+    "dagre": "^0.8.5",
     "date-fns": "^4.1.0",
+    "elkjs": "^0.10.0",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "json-logic-js": "^2.0.5",
@@ -60,8 +65,11 @@
     "recharts": "^2.15.3",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.3.0",
+    "ts-node": "^10.9.2",
+    "uuid": "^11.1.0",
     "vaul": "^1.1.2",
     "zod": "^3.25.42",
+    "zundo": "^2.3.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

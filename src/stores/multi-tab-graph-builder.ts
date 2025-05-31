@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { temporal } from 'zundo';
 import { ParamNode, NodeConnection } from '@/types/graph-builder';
+import { scheduleAutoSave } from '@/lib/localStorage';
 
 export interface GraphTab {
   id: string;
@@ -10,34 +12,46 @@ export interface GraphTab {
   position: { x: number; y: number; zoom: number };
 }
 
-interface TabHistory {
-  tabStates: GraphTab[];
-  historyIndex: number;
+// Separate store for each tab's canvas state with undo/redo
+interface TabCanvasState {
+  nodes: ParamNode[];
+  connections: NodeConnection[];
+  selectedNodeId: string | null;
+  position: { x: number; y: number; zoom: number };
 }
 
+// Main store without undo/redo for tab management
 interface MultiTabGraphBuilderStore {
   tabs: GraphTab[];
   activeTabId: string | null;
-  history: TabHistory[];
-  historyIndex: number;
+  tabCanvasStores: Map<string, any>; // Map of tab ID to temporal store
   
-  // History actions
-  saveToHistory: () => void;
-  undo: () => void;
-  redo: () => void;
-  canUndo: () => boolean;
-  canRedo: () => boolean;
+  // Add flag to prevent auto-save during undo/redo
+  isUndoRedoOperation: boolean;
   
-  // Tab management
+  // Add flag to prevent multiple simultaneous template loads
+  isLoadingTemplate: boolean;
+  
+  // Tab management (no undo/redo for these)
   createTab: (name?: string) => string;
+  createTabWithId: (tabId: string, tabData: Partial<GraphTab>) => string;
   deleteTab: (tabId: string) => void;
   renameTab: (tabId: string, name: string) => void;
   setActiveTab: (tabId: string) => void;
+  setActiveTabById: (tabId: string) => boolean;
   importGraph: (tabId: string, data: { nodes: ParamNode[], connections: NodeConnection[], position?: { x: number; y: number; zoom: number } }) => void;
+  
+  // Template-related tab operations
+  getTabsForTemplate: (templateId: string) => GraphTab[];
+  filterTabsByTemplate: (templateId: string) => void;
+  loadTabsFromTemplate: (templateId: string) => void;
   
   // Active tab operations
   getActiveTab: () => GraphTab | null;
   updateActiveTab: (updates: Partial<Omit<GraphTab, 'id'>>) => void;
+  
+  // Canvas operations with undo/redo support
+  getActiveTabCanvasStore: () => any;
   
   // Node operations for active tab
   addNodeToActiveTab: (node: Omit<ParamNode, 'id'>) => string;
@@ -51,70 +65,148 @@ interface MultiTabGraphBuilderStore {
   // View operations for active tab
   setSelectedNodeInActiveTab: (nodeId: string | null) => void;
   updateViewportInActiveTab: (position: { x: number; y: number; zoom: number }) => void;
+  
+  // Auto-save functionality
+  scheduleAutoSaveToTemplate: () => void;
+  
+  // Undo/redo operations for active tab only
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  undo: () => void;
+  redo: () => void;
 }
+
+// Create a temporal store for tab canvas state
+const createTabCanvasStore = (initialState: TabCanvasState) => {
+  return create(
+    temporal(
+      (set: (fn: (state: TabCanvasState) => TabCanvasState) => void, get: () => TabCanvasState) => ({
+        nodes: initialState.nodes,
+        connections: initialState.connections,
+        selectedNodeId: initialState.selectedNodeId,
+        position: initialState.position,
+        
+        // Canvas operations that will be tracked by undo/redo
+        setNodes: (nodes: ParamNode[]) => set((state: TabCanvasState) => ({ ...state, nodes })),
+        setConnections: (connections: NodeConnection[]) => set((state: TabCanvasState) => ({ ...state, connections })),
+        setSelectedNodeId: (selectedNodeId: string | null) => set((state: TabCanvasState) => ({ ...state, selectedNodeId })),
+        setPosition: (position: { x: number; y: number; zoom: number }) => set((state: TabCanvasState) => ({ ...state, position })),
+        
+        addNode: (node: Omit<ParamNode, 'id'>) => {
+          const newNodeId = `node_${Date.now()}`;
+          const newNode: ParamNode = { id: newNodeId, ...node };
+          set((state: TabCanvasState) => ({ ...state, nodes: [...state.nodes, newNode] }));
+          return newNodeId;
+        },
+        
+        updateNode: (nodeId: string, updates: Partial<ParamNode>) => {
+          set((state: TabCanvasState) => ({
+            ...state,
+            nodes: state.nodes.map((node: ParamNode) => 
+              node.id === nodeId ? { ...node, ...updates } : node
+            )
+          }));
+        },
+        
+        deleteNode: (nodeId: string) => {
+          set((state: TabCanvasState) => ({
+            ...state,
+            nodes: state.nodes.filter((node: ParamNode) => node.id !== nodeId),
+            connections: state.connections.filter((conn: NodeConnection) => 
+              conn.source !== nodeId && conn.target !== nodeId
+            )
+          }));
+        },
+        
+        addConnection: (connection: Omit<NodeConnection, 'id'>) => {
+          const newConnectionId = `connection_${Date.now()}`;
+          const newConnection: NodeConnection = { id: newConnectionId, ...connection };
+          set((state: TabCanvasState) => ({ ...state, connections: [...state.connections, newConnection] }));
+          return newConnectionId;
+        },
+        
+        deleteConnection: (connectionId: string) => {
+          set((state: TabCanvasState) => ({
+            ...state,
+            connections: state.connections.filter((conn: NodeConnection) => conn.id !== connectionId)
+          }));
+        },
+      }),
+      {
+        limit: 50,
+        partialize: (state: TabCanvasState) => {
+          // Only track canvas operations, not selection or viewport
+          const { nodes, connections } = state;
+          return { nodes, connections };
+        },
+        onSave: (pastState: any, currentState: any) => {
+          // Don't create history entries for identical states
+          if (pastState && currentState) {
+            const pastNodes = JSON.stringify(pastState.nodes);
+            const pastConnections = JSON.stringify(pastState.connections);
+            const currentNodes = JSON.stringify(currentState.nodes);
+            const currentConnections = JSON.stringify(currentState.connections);
+            
+            return pastNodes !== currentNodes || pastConnections !== currentConnections;
+          }
+          return true;
+        }
+      }
+    )
+  );
+};
+
+// Helper function to trigger auto-save of current tab to template
+const autoSaveTabToTemplate = () => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    // Import stores dynamically to avoid circular dependencies
+    const { useTemplateStore } = require('@/stores/template-store');
+    const { useMultiTabGraphBuilderStore } = require('@/stores/multi-tab-graph-builder');
+    const { useGraphBuilderStore } = require('@/stores/graph-builder');
+    
+    const templateStore = useTemplateStore.getState();
+    const multiTabStore = useMultiTabGraphBuilderStore.getState();
+    const singleTabStore = useGraphBuilderStore.getState();
+    
+    // Don't auto-save during undo/redo operations
+    if (multiTabStore.isUndoRedoOperation) {
+      return;
+    }
+    
+    const activeTab = multiTabStore.getActiveTab();
+    const activeTemplateId = templateStore.activeTemplateId;
+    
+    if (activeTab && activeTemplateId) {
+      // Save current tab to template
+      templateStore.saveMetricToTemplate(activeTemplateId, activeTab);
+    }
+    
+    // Schedule localStorage auto-save
+    scheduleAutoSave(
+      { getState: () => templateStore },
+      { getState: () => multiTabStore },
+      { getState: () => singleTabStore },
+      { theme: 'system' }
+    );
+  } catch (error) {
+    console.error('Auto-save error:', error);
+  }
+};
 
 export const useMultiTabGraphBuilderStore = create<MultiTabGraphBuilderStore>((set, get) => ({
   tabs: [],
   activeTabId: null,
-  history: [],
-  historyIndex: -1,
+  tabCanvasStores: new Map(),
+  
+  // Add flag to prevent auto-save during undo/redo
+  isUndoRedoOperation: false,
 
-  // Helper function to save state to history
-  saveToHistory: () => {
-    const state = get();
-    const currentState = {
-      tabStates: [...state.tabs],
-      historyIndex: -1
-    };
-    
-    const newHistory = state.history.slice(0, state.historyIndex + 1);
-    newHistory.push(currentState);
-    
-    // Limit history to 50 items
-    if (newHistory.length > 50) {
-      newHistory.shift();
-    } else {
-      set({ historyIndex: state.historyIndex + 1 });
-    }
-    
-    set({ history: newHistory });
-  },
-
-  undo: () => {
-    const state = get();
-    if (state.historyIndex > 0) {
-      const previousState = state.history[state.historyIndex - 1];
-      set({
-        tabs: [...previousState.tabStates],
-        historyIndex: state.historyIndex - 1,
-      });
-    }
-  },
-
-  redo: () => {
-    const state = get();
-    if (state.historyIndex < state.history.length - 1) {
-      const nextState = state.history[state.historyIndex + 1];
-      set({
-        tabs: [...nextState.tabStates],
-        historyIndex: state.historyIndex + 1,
-      });
-    }
-  },
-
-  canUndo: () => {
-    const state = get();
-    return state.historyIndex > 0;
-  },
-
-  canRedo: () => {
-    const state = get();
-    return state.historyIndex < state.history.length - 1;
-  },
-
+  // Add flag to prevent multiple simultaneous template loads
+  isLoadingTemplate: false,
+  
   createTab: (name?: string) => {
-    get().saveToHistory();
-    
     const newTabId = `tab_${Date.now()}`;
     const newTab: GraphTab = {
       id: newTabId,
@@ -125,33 +217,95 @@ export const useMultiTabGraphBuilderStore = create<MultiTabGraphBuilderStore>((s
       position: { x: 0, y: 0, zoom: 1 }
     };
 
-    set(state => ({
-      tabs: [...state.tabs, newTab],
-      activeTabId: newTabId
-    }));
+    // Create a new canvas store for this tab
+    const canvasStore = createTabCanvasStore({
+      nodes: newTab.nodes,
+      connections: newTab.connections,
+      selectedNodeId: newTab.selectedNodeId,
+      position: newTab.position
+    });
+
+    set(state => {
+      const newTabCanvasStores = new Map(state.tabCanvasStores);
+      newTabCanvasStores.set(newTabId, canvasStore);
+      
+      return {
+        tabs: [...state.tabs, newTab],
+        activeTabId: newTabId,
+        tabCanvasStores: newTabCanvasStores
+      };
+    });
+
+    // Schedule auto-save after creating tab (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
 
     return newTabId;
   },
 
+  createTabWithId: (tabId: string, tabData: Partial<GraphTab>) => {
+    const newTab: GraphTab = {
+      id: tabId,
+      name: tabData.name || `Métrique ${get().tabs.length + 1}`,
+      nodes: tabData.nodes || [],
+      connections: tabData.connections || [],
+      selectedNodeId: tabData.selectedNodeId || null,
+      position: tabData.position || { x: 0, y: 0, zoom: 1 }
+    };
+
+    // Create a new canvas store for this tab
+    const canvasStore = createTabCanvasStore({
+      nodes: newTab.nodes,
+      connections: newTab.connections,
+      selectedNodeId: newTab.selectedNodeId,
+      position: newTab.position
+    });
+
+    set(state => {
+      const newTabCanvasStores = new Map(state.tabCanvasStores);
+      newTabCanvasStores.set(tabId, canvasStore);
+      
+      return {
+        tabs: [...state.tabs, newTab],
+        activeTabId: tabId,
+        tabCanvasStores: newTabCanvasStores
+      };
+    });
+
+    // Schedule auto-save after creating tab (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
+
+    return tabId;
+  },
+
   deleteTab: (tabId: string) => {
-    get().saveToHistory();
-    
     set(state => {
       const newTabs = state.tabs.filter(tab => tab.id !== tabId);
       const newActiveTabId = state.activeTabId === tabId 
         ? (newTabs.length > 0 ? newTabs[0].id : null)
         : state.activeTabId;
 
+      // Remove the canvas store for this tab
+      const newTabCanvasStores = new Map(state.tabCanvasStores);
+      newTabCanvasStores.delete(tabId);
+
       return {
         tabs: newTabs,
-        activeTabId: newActiveTabId
+        activeTabId: newActiveTabId,
+        tabCanvasStores: newTabCanvasStores
       };
     });
+    
+    // Schedule auto-save after deleting tab (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
   },
 
   renameTab: (tabId: string, name: string) => {
-    get().saveToHistory();
-    
     // Ensure name is always a string
     const safeName = String(name || '');
     
@@ -160,113 +314,499 @@ export const useMultiTabGraphBuilderStore = create<MultiTabGraphBuilderStore>((s
         tab.id === tabId ? { ...tab, name: safeName } : tab
       )
     }));
+    
+    // Schedule auto-save after renaming tab (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
   },
 
   setActiveTab: (tabId: string) => {
+    // Save current tab before switching (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      const currentTab = get().getActiveTab();
+      if (currentTab) {
+        setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+      }
+    }
+    
     set({ activeTabId: tabId });
   },
 
-  importGraph: (tabId: string, data: { nodes: ParamNode[], connections: NodeConnection[], position?: { x: number; y: number; zoom: number } }) => {
-    get().saveToHistory();
+  setActiveTabById: (tabId: string) => {
+    const state = get();
+    const tabExists = state.tabs.find(tab => tab.id === tabId);
+    if (tabExists) {
+      // Save current tab before switching (only if not in undo/redo)
+      if (!get().isUndoRedoOperation) {
+        const currentTab = get().getActiveTab();
+        if (currentTab) {
+          setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+        }
+      }
+      
+      set({ activeTabId: tabId });
+      return true;
+    }
+    return false;
+  },
+
+  getTabsForTemplate: (templateId: string) => {
+    // For now, we'll assume all tabs belong to the active template
+    // In a more complex setup, tabs would have a templateId property
+    const state = get();
+    return state.tabs;
+  },
+
+  filterTabsByTemplate: (templateId: string) => {
+    // This will be called when switching templates
+    // For now, we show all tabs since tabs don't have templateId yet
+    // In a future version, we could add templateId to GraphTab
+  },
+
+  loadTabsFromTemplate: (templateId: string) => {
+    // Prevent concurrent calls
+    const currentState = get();
+    if (currentState.isLoadingTemplate) {
+      console.log('Template loading already in progress, skipping:', templateId);
+      return;
+    }
     
+    // Set loading flag
+    set({ isLoadingTemplate: true });
+    
+    try {
+      // Import template store dynamically to avoid circular dependencies
+      const { useTemplateStore } = require('@/stores/template-store');
+      const templateStore = useTemplateStore.getState();
+      
+      const template = templateStore.templates.find((t: any) => t.id === templateId);
+      if (!template) {
+        console.log('Template not found:', templateId);
+        set({ isLoadingTemplate: false });
+        return;
+      }
+      
+      // Check if we're already showing tabs for this template to prevent duplicates
+      const state = get();
+      
+      // Convert template metrics to tabs
+      const newTabs = template.metrics.map((metric: any) => 
+        templateStore.convertMetricTabToGraphTab(metric)
+      );
+      
+      // Check if we already have the same tabs loaded (compare by metric IDs)
+      const currentTabIds = state.tabs.map((tab: GraphTab) => tab.id).sort();
+      const newTabIds = newTabs.map((tab: GraphTab) => tab.id).sort();
+      
+      if (state.tabs.length > 0 && 
+          currentTabIds.length === newTabIds.length && 
+          currentTabIds.every((id, index) => id === newTabIds[index])) {
+        console.log('Same tabs already loaded for template:', templateId);
+        // Ensure we have an active tab even if tabs are the same
+        if (!state.activeTabId && newTabs.length > 0) {
+          set({ activeTabId: newTabs[0].id });
+        }
+        set({ isLoadingTemplate: false });
+        return;
+      }
+      
+      console.log('Loading tabs from template:', templateId, 'metrics:', template.metrics.length, 'tabs:', newTabs.length);
+      console.log('Current tabs:', state.tabs.length, 'New tabs:', newTabs.length);
+      
+      // Create canvas stores for each tab
+      const newTabCanvasStores = new Map();
+      newTabs.forEach((tab: GraphTab) => {
+        const canvasStore = createTabCanvasStore({
+          nodes: tab.nodes,
+          connections: tab.connections,
+          selectedNodeId: tab.selectedNodeId,
+          position: tab.position
+        });
+        newTabCanvasStores.set(tab.id, canvasStore);
+      });
+      
+      // Force clear existing tabs and load new ones
+      // Always set the first tab as active, even if there are no tabs (null in that case)
+      const firstTabId = newTabs.length > 0 ? newTabs[0].id : null;
+      
+      set({
+        tabs: [...newTabs], // Create a new array to ensure React sees the change
+        activeTabId: firstTabId,
+        tabCanvasStores: newTabCanvasStores,
+        isLoadingTemplate: false // Clear loading flag
+      });
+      
+      // Log the final state for debugging
+      console.log('Template loaded successfully. Active tab:', firstTabId, 'Total tabs:', newTabs.length);
+      
+    } catch (error) {
+      console.error('Error loading tabs from template:', error);
+      // Make sure to clear loading flag even on error
+      set({ isLoadingTemplate: false });
+    }
+  },
+
+  importGraph: (tabId: string, data: { nodes: ParamNode[], connections: NodeConnection[], position?: { x: number; y: number; zoom: number } }) => {
+    // Update the tab
     set(state => ({
-      tabs: state.tabs.map(tab =>
-        tab.id === tabId ? {
-          ...tab,
-          nodes: data.nodes,
-          connections: data.connections,
-          position: data.position || tab.position
-        } : tab
+      tabs: state.tabs.map(tab => 
+        tab.id === tabId 
+          ? { 
+              ...tab, 
+              nodes: data.nodes || [],
+              connections: data.connections || [],
+              position: data.position || { x: 0, y: 0, zoom: 1 }
+            } 
+          : tab
       )
     }));
+    
+    // Update the canvas store for this tab
+    const canvasStore = get().tabCanvasStores.get(tabId);
+    if (canvasStore) {
+      const { setNodes, setConnections, setPosition } = canvasStore.getState();
+      setNodes(data.nodes || []);
+      setConnections(data.connections || []);
+      setPosition(data.position || { x: 0, y: 0, zoom: 1 });
+    } else {
+      // Create new canvas store if it doesn't exist
+      const newCanvasStore = createTabCanvasStore({
+        nodes: data.nodes || [],
+        connections: data.connections || [],
+        selectedNodeId: null,
+        position: data.position || { x: 0, y: 0, zoom: 1 }
+      });
+      
+      set(state => {
+        const newTabCanvasStores = new Map(state.tabCanvasStores);
+        newTabCanvasStores.set(tabId, newCanvasStore);
+        return { tabCanvasStores: newTabCanvasStores };
+      });
+    }
+    
+    // Schedule auto-save after importing (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
   },
 
   getActiveTab: () => {
     const state = get();
-    return state.tabs.find(tab => tab.id === state.activeTabId) || null;
+    if (!state.activeTabId) return null;
+    
+    // Get base tab data
+    const baseTab = state.tabs.find(tab => tab.id === state.activeTabId);
+    if (!baseTab) return null;
+    
+    // Get current canvas state from the temporal store
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (!canvasStore) return baseTab;
+    
+    const canvasState = canvasStore.getState();
+    return {
+      ...baseTab,
+      nodes: canvasState.nodes,
+      connections: canvasState.connections,
+      selectedNodeId: canvasState.selectedNodeId,
+      position: canvasState.position
+    };
   },
 
   updateActiveTab: (updates: Partial<Omit<GraphTab, 'id'>>) => {
     const state = get();
     if (!state.activeTabId) return;
 
+    // Update base tab data
     set(state => ({
-      tabs: state.tabs.map(tab =>
-        tab.id === state.activeTabId ? { ...tab, ...updates } : tab
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, ...updates } 
+          : tab
       )
     }));
+    
+    // Update canvas store if canvas-related updates
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (canvasStore) {
+      const { setNodes, setConnections, setSelectedNodeId, setPosition } = canvasStore.getState();
+      
+      if (updates.nodes !== undefined) setNodes(updates.nodes);
+      if (updates.connections !== undefined) setConnections(updates.connections);
+      if (updates.selectedNodeId !== undefined) setSelectedNodeId(updates.selectedNodeId);
+      if (updates.position !== undefined) setPosition(updates.position);
+    }
+    
+    // Schedule auto-save after updating tab (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
+  },
+
+  getActiveTabCanvasStore: () => {
+    const state = get();
+    if (!state.activeTabId) return null;
+    return state.tabCanvasStores.get(state.activeTabId) || null;
   },
 
   addNodeToActiveTab: (node: Omit<ParamNode, 'id'>) => {
-    get().saveToHistory();
+    const state = get();
+    if (!state.activeTabId) return '';
+
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (!canvasStore) return '';
+
+    const newNodeId = canvasStore.getState().addNode(node);
     
-    const nodeId = `node_${Date.now()}`;
-    const newNode: ParamNode = { ...node, id: nodeId };
+    // Sync with base tab
+    const updatedNodes = canvasStore.getState().nodes;
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, nodes: updatedNodes } 
+          : tab
+      )
+    }));
+    
+    // Schedule auto-save after adding node (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
 
-    get().updateActiveTab({
-      nodes: [...(get().getActiveTab()?.nodes || []), newNode]
-    });
-
-    return nodeId;
+    return newNodeId;
   },
 
   updateNodeInActiveTab: (nodeId: string, updates: Partial<ParamNode>) => {
-    get().saveToHistory();
-    
-    const activeTab = get().getActiveTab();
-    if (!activeTab) return;
+    const state = get();
+    if (!state.activeTabId) return;
 
-    get().updateActiveTab({
-      nodes: activeTab.nodes.map(node =>
-        node.id === nodeId ? { ...node, ...updates } : node
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (!canvasStore) return;
+
+    canvasStore.getState().updateNode(nodeId, updates);
+    
+    // Sync with base tab
+    const updatedNodes = canvasStore.getState().nodes;
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, nodes: updatedNodes } 
+          : tab
       )
-    });
+    }));
+    
+    // Schedule auto-save after updating node (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
   },
 
   deleteNodeFromActiveTab: (nodeId: string) => {
-    get().saveToHistory();
-    
-    const activeTab = get().getActiveTab();
-    if (!activeTab) return;
+    const state = get();
+    if (!state.activeTabId) return;
 
-    get().updateActiveTab({
-      nodes: activeTab.nodes.filter(node => node.id !== nodeId),
-      connections: activeTab.connections.filter(
-        conn => conn.source !== nodeId && conn.target !== nodeId
-      ),
-      selectedNodeId: activeTab.selectedNodeId === nodeId ? null : activeTab.selectedNodeId
-    });
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (!canvasStore) return;
+
+    canvasStore.getState().deleteNode(nodeId);
+    
+    // Sync with base tab
+    const canvasState = canvasStore.getState();
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { 
+              ...tab, 
+              nodes: canvasState.nodes,
+              connections: canvasState.connections 
+            } 
+          : tab
+      )
+    }));
+    
+    // Schedule auto-save after deleting node (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
   },
 
   addConnectionToActiveTab: (connection: Omit<NodeConnection, 'id'>) => {
-    get().saveToHistory();
+    const state = get();
+    if (!state.activeTabId) return '';
+
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (!canvasStore) return '';
+
+    const newConnectionId = canvasStore.getState().addConnection(connection);
     
-    const connectionId = `conn_${Date.now()}`;
-    const newConnection: NodeConnection = { ...connection, id: connectionId };
+    // Sync with base tab
+    const updatedConnections = canvasStore.getState().connections;
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, connections: updatedConnections } 
+          : tab
+      )
+    }));
+    
+    // Schedule auto-save after adding connection (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
 
-    get().updateActiveTab({
-      connections: [...(get().getActiveTab()?.connections || []), newConnection]
-    });
-
-    return connectionId;
+    return newConnectionId;
   },
 
   deleteConnectionFromActiveTab: (connectionId: string) => {
-    get().saveToHistory();
-    
-    const activeTab = get().getActiveTab();
-    if (!activeTab) return;
+    const state = get();
+    if (!state.activeTabId) return;
 
-    get().updateActiveTab({
-      connections: activeTab.connections.filter(conn => conn.id !== connectionId)
-    });
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (!canvasStore) return;
+
+    canvasStore.getState().deleteConnection(connectionId);
+    
+    // Sync with base tab
+    const updatedConnections = canvasStore.getState().connections;
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, connections: updatedConnections } 
+          : tab
+      )
+    }));
+    
+    // Schedule auto-save after deleting connection (only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 100);
+    }
   },
 
   setSelectedNodeInActiveTab: (nodeId: string | null) => {
-    get().updateActiveTab({ selectedNodeId: nodeId });
+    const state = get();
+    if (!state.activeTabId) return;
+
+    // Update canvas store
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (canvasStore) {
+      canvasStore.getState().setSelectedNodeId(nodeId);
+    }
+
+    // Update base tab
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, selectedNodeId: nodeId } 
+          : tab
+      )
+    }));
+    
+    // No auto-save for selection changes to avoid excessive saving
   },
 
   updateViewportInActiveTab: (position: { x: number; y: number; zoom: number }) => {
-    get().updateActiveTab({ position });
+    const state = get();
+    if (!state.activeTabId) return;
+
+    // Update canvas store
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId);
+    if (canvasStore) {
+      canvasStore.getState().setPosition(position);
+    }
+
+    // Update base tab
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { ...tab, position } 
+          : tab
+      )
+    }));
+    
+    // Schedule auto-save for viewport changes (debounced, only if not in undo/redo)
+    if (!get().isUndoRedoOperation) {
+      setTimeout(() => get().scheduleAutoSaveToTemplate(), 500);
+    }
+  },
+
+  scheduleAutoSaveToTemplate: () => {
+    autoSaveTabToTemplate();
+  },
+
+  // Undo/redo operations for the active tab only
+  canUndo: () => {
+    const state = get();
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId || '');
+    if (!canvasStore) return false;
+    return canvasStore.temporal.getState().pastStates.length > 0;
+  },
+
+  canRedo: () => {
+    const state = get();
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId || '');
+    if (!canvasStore) return false;
+    return canvasStore.temporal.getState().futureStates.length > 0;
+  },
+
+  undo: () => {
+    const state = get();
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId || '');
+    if (!canvasStore) return;
+
+    // Set flag to prevent auto-save during undo
+    set({ isUndoRedoOperation: true });
+
+    // Perform undo
+    canvasStore.temporal.getState().undo();
+    
+    // Sync with base tab
+    const canvasState = canvasStore.getState();
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { 
+              ...tab, 
+              nodes: canvasState.nodes,
+              connections: canvasState.connections 
+            } 
+          : tab
+      )
+    }));
+
+    // Clear flag after operation
+    setTimeout(() => {
+      set({ isUndoRedoOperation: false });
+    }, 10);
+  },
+
+  redo: () => {
+    const state = get();
+    const canvasStore = state.tabCanvasStores.get(state.activeTabId || '');
+    if (!canvasStore) return;
+
+    // Set flag to prevent auto-save during redo
+    set({ isUndoRedoOperation: true });
+
+    // Perform redo
+    canvasStore.temporal.getState().redo();
+    
+    // Sync with base tab
+    const canvasState = canvasStore.getState();
+    set(state => ({
+      tabs: state.tabs.map(tab => 
+        tab.id === state.activeTabId 
+          ? { 
+              ...tab, 
+              nodes: canvasState.nodes,
+              connections: canvasState.connections 
+            } 
+          : tab
+      )
+    }));
+
+    // Clear flag after operation
+    setTimeout(() => {
+      set({ isUndoRedoOperation: false });
+    }, 10);
   }
 }));

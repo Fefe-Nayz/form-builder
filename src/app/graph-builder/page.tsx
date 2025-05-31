@@ -14,7 +14,8 @@ import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
 
 export default function GraphBuilderWithTabsPage() {
-  const { undo, redo, canUndo, canRedo } = useMultiTabGraphBuilderStore();
+  const { undo, redo, canUndo, canRedo, isUndoRedoOperation } =
+    useMultiTabGraphBuilderStore();
   const { activeTemplateId } = useTemplateStore();
 
   // Add keyboard shortcuts for undo/redo
@@ -24,12 +25,14 @@ export default function GraphBuilderWithTabsPage() {
       if (event.ctrlKey || event.metaKey) {
         if (event.key === "z" && !event.shiftKey) {
           event.preventDefault();
-          if (canUndo()) {
+          // Add safety check to prevent multiple rapid undo calls
+          if (canUndo() && !isUndoRedoOperation) {
             undo();
           }
         } else if (event.key === "y" || (event.key === "z" && event.shiftKey)) {
           event.preventDefault();
-          if (canRedo()) {
+          // Add safety check to prevent multiple rapid redo calls
+          if (canRedo() && !isUndoRedoOperation) {
             redo();
           }
         }
@@ -38,7 +41,7 @@ export default function GraphBuilderWithTabsPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undo, redo, canUndo, canRedo]);
+  }, [undo, redo, canUndo, canRedo, isUndoRedoOperation]);
 
   return (
     <div className="h-screen flex flex-col">
@@ -56,7 +59,7 @@ export default function GraphBuilderWithTabsPage() {
           {activeTemplateId && (
             <>
               <ResizablePanel
-                defaultSize={25}
+                defaultSize={20}
                 minSize={20}
                 maxSize={40}
                 className="min-w-0"

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useCallback, useEffect } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,6 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,6 +33,7 @@ import {
   Redo,
   LayoutGrid,
   Database,
+  RotateCcw,
 } from "lucide-react";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
@@ -40,7 +42,12 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CardTemplate } from "@/types/graph-builder";
 import { MetricTab } from "@/types/template";
 import { ProjectManager } from "./ProjectManager";
+import { AutoLayoutControls } from "./AutoLayoutControls";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { clearAppStateFromLocalStorage } from "@/lib/localStorage";
+import { useTheme } from "next-themes";
 
 export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
   const {
@@ -63,9 +70,18 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
     redo: multiRedo,
     canUndo: multiCanUndo,
     canRedo: multiCanRedo,
+    isUndoRedoOperation,
+    loadTabsFromTemplate,
+    createTab,
+    importGraph,
+    setActiveTab,
   } = useMultiTabGraphBuilderStore();
 
-  const { activeTemplateId, exportForDatabase } = useTemplateStore();
+  const { activeTemplateId, exportForDatabase, setActiveTemplate } =
+    useTemplateStore();
+
+  // Initialize auto-save
+  useAutoSave(tabMode);
 
   // Choose the right undo/redo functions based on mode
   const undo = tabMode ? multiUndo : singleUndo;
@@ -81,6 +97,93 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
     metric: "",
     version: 1,
   });
+
+  // When switching templates in tab mode, load the template's tabs
+  useEffect(() => {
+    if (tabMode && activeTemplateId) {
+      // Add a small delay and check if template ID is still the same to prevent rapid successive calls
+      const currentTemplateId = activeTemplateId;
+      const timeoutId = setTimeout(() => {
+        // Double-check that the template ID hasn't changed during the delay
+        if (
+          useTemplateStore.getState().activeTemplateId === currentTemplateId
+        ) {
+          // Check if we already have tabs for this template to prevent unnecessary loading
+          const currentTabs = useMultiTabGraphBuilderStore.getState().tabs;
+          const templateStore = useTemplateStore.getState();
+          const template = templateStore.templates.find(
+            (t) => t.id === currentTemplateId
+          );
+
+          if (template) {
+            // Check if current tabs match template metrics
+            const templateMetricIds = template.metrics
+              .map((m: any) => m.id)
+              .sort();
+            const currentTabIds = currentTabs.map((tab) => tab.id).sort();
+
+            const tabsMatch =
+              currentTabIds.length === templateMetricIds.length &&
+              currentTabIds.every(
+                (id, index) => id === templateMetricIds[index]
+              );
+
+            if (!tabsMatch) {
+              console.log(
+                "Loading tabs from template in GraphToolbar:",
+                currentTemplateId
+              );
+              loadTabsFromTemplate(currentTemplateId);
+            } else {
+              console.log(
+                "Tabs already match template, skipping load:",
+                currentTemplateId
+              );
+            }
+          }
+        }
+      }, 150); // Increased delay to give useAutoSave time to complete
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [tabMode, activeTemplateId]); // Removed loadTabsFromTemplate from dependencies to prevent re-runs
+
+  // Reset functionality
+  const handleResetApp = () => {
+    const success = clearAppStateFromLocalStorage();
+
+    if (success) {
+      // Reset current state using store methods
+      useTemplateStore.setState({
+        templates: [],
+        activeTemplateId: null,
+      });
+
+      useMultiTabGraphBuilderStore.setState({
+        tabs: [],
+        activeTabId: null,
+        tabCanvasStores: new Map(),
+        isUndoRedoOperation: false,
+      });
+
+      useGraphBuilderStore.setState({
+        nodes: [],
+        selectedNodeId: null,
+        template: null,
+      });
+
+      toast.success("Application réinitialisée avec succès");
+
+      // Reload the page to ensure clean state
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } else {
+      toast.error("Erreur lors de la réinitialisation");
+    }
+  };
 
   const handleExport = () => {
     if (!tabMode) {
@@ -187,64 +290,50 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
               const templateId = importTemplate(data);
               setActiveTemplate(templateId);
 
-              // Load the metrics into tabs
-              const { createTab, importGraph } =
-                useMultiTabGraphBuilderStore.getState();
-              data.metrics.forEach((metric: MetricTab) => {
-                const tabId = createTab(metric.name);
-                importGraph(tabId, {
-                  nodes: metric.nodes || [],
-                  connections: metric.connections || [],
-                  position: metric.position || { x: 0, y: 0, zoom: 1 },
-                });
-              });
-
+              // Remove manual tab creation - let the useEffect handle it via loadTabsFromTemplate
               toast.success(
                 "Template importé avec succès avec " +
                   data.metrics.length +
                   " métriques"
               );
             } else if (data.nodes && Array.isArray(data.nodes)) {
-              // It's a single metric, import into current tab or create new one
-              const activeTab = getActiveTab();
-              let tabId = activeTab?.id;
+              // It's a single metric, always create a new tab for it
+              const { activeTemplateId, addMetricToTemplate } =
+                useTemplateStore.getState();
 
-              if (!tabId) {
-                // No active tab, create one
-                const { activeTemplateId } = useTemplateStore.getState();
-                if (!activeTemplateId) {
-                  toast.error(
-                    "Aucun template actif. Créez ou sélectionnez un template d'abord."
-                  );
-                  return;
-                }
-                const { createTab } = useMultiTabGraphBuilderStore.getState();
-                tabId = createTab(data.name || "Métrique importée");
+              if (!activeTemplateId) {
+                toast.error("Veuillez d'abord sélectionner un template");
+                return;
               }
 
-              const { importGraph } = useMultiTabGraphBuilderStore.getState();
+              const tabId = createTab(data.name || "Métrique importée");
               importGraph(tabId, {
                 nodes: data.nodes || [],
                 connections: data.connections || [],
                 position: data.position || { x: 0, y: 0, zoom: 1 },
               });
-              toast.success("Métrique importée avec succès");
+              setActiveTab(tabId);
+
+              // Add the imported tab to the active template
+              const newTab = useMultiTabGraphBuilderStore
+                .getState()
+                .tabs.find((t) => t.id === tabId);
+              if (newTab && activeTemplateId) {
+                addMetricToTemplate(activeTemplateId, newTab);
+              }
+
+              toast.success("Métrique importée dans un nouvel onglet");
             } else {
-              toast.error("Format de fichier non reconnu");
+              toast.error("Format non reconnu");
             }
-          } catch (importError) {
-            console.error("Import error:", importError);
-            toast.error(
-              "Erreur lors de l'import: " +
-                (importError instanceof Error
-                  ? importError.message
-                  : "Format invalide")
-            );
+          } catch (parseError) {
+            console.error("Template parse error:", parseError);
+            toast.error("Erreur lors de l'analyse du template");
           }
         }
-      } catch (parseError) {
-        console.error("Parse error:", parseError);
-        toast.error("Erreur lors de l'import du fichier JSON");
+      } catch (error) {
+        console.error("JSON parse error:", error);
+        toast.error("Format JSON invalide");
       }
     };
     reader.readAsText(file);
@@ -338,7 +427,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
             onOpenChange={setIsTemplateDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" size="default">
                 <Save className="h-4 w-4 mr-2" />
                 Nouveau Template
               </Button>
@@ -402,7 +491,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
         <div className="flex-1">
           <h1 className="text-lg font-bold">Constructeur de formulaires</h1>
           <p className="text-sm text-muted-foreground">
-            {tabs.length} métriques configurées
+            {tabs.length} métriques configurées • Auto-sauvegarde activée
           </p>
         </div>
       )}
@@ -413,6 +502,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
           <>
             <Button
               variant="outline"
+              size="default"
               onClick={() => setIsProjectManagerOpen(true)}
             >
               <LayoutGrid className="h-4 w-4 mr-2" />
@@ -421,6 +511,7 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
 
             <Button
               variant="outline"
+              size="default"
               onClick={handleCreateCard}
               disabled={!activeTemplateId}
               title="Créer une carte (export pour base de données)"
@@ -434,62 +525,130 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
         )}
 
         {/* Undo/Redo - Show for both modes */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={undo}
-          disabled={!canUndo()}
-          title="Annuler (Ctrl+Z)"
-        >
-          <Undo className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="default"
+            onClick={() => {
+              if (!isUndoRedoOperation) {
+                undo();
+              }
+            }}
+            disabled={!canUndo() || isUndoRedoOperation}
+            title="Annuler (Ctrl+Z)"
+            className="px-3"
+          >
+            <Undo className="h-4 w-4" />
+          </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={redo}
-          disabled={!canRedo()}
-          title="Refaire (Ctrl+Y)"
-        >
-          <Redo className="h-4 w-4" />
-        </Button>
+          <Button
+            variant="outline"
+            size="default"
+            onClick={() => {
+              if (!isUndoRedoOperation) {
+                redo();
+              }
+            }}
+            disabled={!canRedo() || isUndoRedoOperation}
+            title="Refaire (Ctrl+Y)"
+            className="px-3"
+          >
+            <Redo className="h-4 w-4" />
+          </Button>
+        </div>
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        <Button
-          variant="outline"
-          onClick={handleExport}
-          disabled={!tabMode && (!template || nodes.length === 0)}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+        {/* Auto Layout Controls */}
+        <AutoLayoutControls tabMode={tabMode} />
 
-        <label>
-          <Button variant="outline" asChild>
-            <span>
-              <Upload className="h-4 w-4 mr-2" />
-              Import
-            </span>
-          </Button>
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-          />
-        </label>
+        <div className="w-px h-6 bg-border mx-1" />
 
-        {!tabMode && (
+        {/* Import/Export */}
+        <div className="flex items-center gap-1">
           <Button
             variant="outline"
-            onClick={clearGraph}
-            className="text-destructive hover:text-destructive"
+            size="default"
+            onClick={handleExport}
+            disabled={!tabMode && (!template || nodes.length === 0)}
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Clear
+            <Download className="h-4 w-4 mr-2" />
+            Export
           </Button>
+
+          <label>
+            <Button variant="outline" size="default" asChild>
+              <span>
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </span>
+            </Button>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        {!tabMode && (
+          <>
+            <div className="w-px h-6 bg-border mx-1" />
+            <Button
+              variant="outline"
+              size="default"
+              onClick={clearGraph}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          </>
         )}
+
+        <div className="w-px h-6 bg-border mx-1" />
+
+        {/* Reset Button */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="default"
+              className="text-destructive hover:text-destructive"
+              title="Réinitialiser toutes les données"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Réinitialiser
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Réinitialiser l'application</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action va supprimer définitivement :
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Tous les templates et métriques</li>
+                  <li>Tous les onglets et graphiques</li>
+                  <li>Les données sauvegardées en local</li>
+                  <li>L'historique de l'application</li>
+                </ul>
+                L'application sera rechargée après la réinitialisation.
+                <br />
+                <strong>Cette action est irréversible.</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleResetApp}
+                className={buttonVariants({ variant: "destructive" })}
+              >
+                Réinitialiser
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <div className="w-px h-6 bg-border mx-1" />
 
