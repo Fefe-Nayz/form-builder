@@ -16,11 +16,6 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
     {
       "id": "metric_mean",
       "name": "Mean",
-      "position": {
-        "x": 0,
-        "y": 0,
-        "zoom": 1
-      },
       "nodes": [
         {
           "id": "mean_scope",
@@ -61,8 +56,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 80
+            "x": 650,
+            "y": 50
           }
         },
         {
@@ -84,8 +79,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 120
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -108,8 +103,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 170
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -152,8 +147,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 240
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -203,8 +198,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 320
+            "x": 1250,
+            "y": 350
           }
         },
         {
@@ -221,8 +216,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "help_json": {},
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 360
+            "x": 650,
+            "y": 650
           }
         },
         {
@@ -239,8 +234,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "help_json": {},
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 360
+            "x": 1050,
+            "y": 650
           }
         },
         {
@@ -260,8 +255,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 410
+            "x": 1450,
+            "y": 650
           }
         },
         {
@@ -281,8 +276,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 100
           },
           "position": {
-            "x": 620,
-            "y": 410
+            "x": 1850,
+            "y": 650
           }
         }
       ],
@@ -333,16 +328,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "mean_n_notes",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_notes\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_median",
-      "name": "Median",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_median",
+      "name": "Median",
       "nodes": [
         {
           "id": "median_scope",
@@ -383,8 +378,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 80
+            "x": 650,
+            "y": 50
           }
         },
         {
@@ -403,8 +398,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 120
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -424,8 +419,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 170
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -468,8 +463,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 240
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -516,8 +511,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 320
+            "x": 1250,
+            "y": 350
           }
         },
         {
@@ -534,8 +529,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "help_json": {},
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 360
+            "x": 650,
+            "y": 650
           }
         },
         {
@@ -552,8 +547,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "help_json": {},
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 360
+            "x": 1050,
+            "y": 650
           }
         },
         {
@@ -573,8 +568,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 410
+            "x": 1450,
+            "y": 650
           }
         },
         {
@@ -594,8 +589,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 100
           },
           "position": {
-            "x": 620,
-            "y": 410
+            "x": 1850,
+            "y": 650
           }
         }
       ],
@@ -646,16 +641,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "median_n_notes",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_notes\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_note",
-      "name": "Note",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_note",
+      "name": "Note",
       "nodes": [
         {
           "id": "note_scope",
@@ -696,8 +691,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 450,
+            "y": 50
           }
         },
         {
@@ -716,8 +711,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -737,8 +732,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -795,8 +790,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -840,8 +835,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 420,
-            "y": 260
+            "x": 650,
+            "y": 650
           }
         },
         {
@@ -889,8 +884,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 320
+            "x": 1050,
+            "y": 650
           }
         },
         {
@@ -907,8 +902,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "help_json": {},
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 360
+            "x": 450,
+            "y": 950
           }
         },
         {
@@ -925,8 +920,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "help_json": {},
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 360
+            "x": 850,
+            "y": 950
           }
         },
         {
@@ -946,8 +941,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 410
+            "x": 1250,
+            "y": 950
           }
         },
         {
@@ -967,8 +962,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 100
           },
           "position": {
-            "x": 620,
-            "y": 410
+            "x": 1650,
+            "y": 950
           }
         }
       ],
@@ -1026,16 +1021,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "note_n_notes",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_notes\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_impact",
-      "name": "Impact",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_impact",
+      "name": "Impact",
       "nodes": [
         {
           "id": "impact_source_type",
@@ -1076,8 +1071,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "en": "Select the source to evaluate impact from"
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 650,
+            "y": 50
           }
         },
         {
@@ -1095,8 +1090,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -1115,8 +1110,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -1134,8 +1129,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Note"
           },
           "position": {
-            "x": 420,
-            "y": 200
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -1174,8 +1169,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 240
+            "x": 1250,
+            "y": 350
           }
         },
         {
@@ -1215,8 +1210,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 420,
-            "y": 260
+            "x": 250,
+            "y": 650
           }
         },
         {
@@ -1276,8 +1271,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 320
+            "x": 650,
+            "y": 650
           }
         },
         {
@@ -1323,8 +1318,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 380
+            "x": 2250,
+            "y": 650
           }
         },
         {
@@ -1342,8 +1337,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 360
+            "x": 450,
+            "y": 950
           }
         },
         {
@@ -1362,8 +1357,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 410
+            "x": 850,
+            "y": 950
           }
         },
         {
@@ -1379,8 +1374,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 1,
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 420
+            "x": 1650,
+            "y": 950
           }
         },
         {
@@ -1396,8 +1391,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 2,
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 420
+            "x": 2050,
+            "y": 950
           }
         },
         {
@@ -1416,8 +1411,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 470
+            "x": 2450,
+            "y": 950
           }
         },
         {
@@ -1436,8 +1431,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 100
           },
           "position": {
-            "x": 620,
-            "y": 470
+            "x": 2850,
+            "y": 950
           }
         }
       ],
@@ -1517,16 +1512,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "impact_target_subject_ids",
           "condition": "{\"in\":[{\"var\":\"target_metric\"},[\"mean_custom_subject\",\"median_custom_subject\"]]}"
         }
-      ]
-    },
-    {
-      "id": "metric_stddev",
-      "name": "Standard Deviation",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_stddev",
+      "name": "Standard Deviation",
       "nodes": [
         {
           "id": "std_scope",
@@ -1564,8 +1559,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 650,
+            "y": 50
           }
         },
         {
@@ -1584,8 +1579,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -1605,8 +1600,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -1646,8 +1641,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -1687,8 +1682,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 300
+            "x": 1250,
+            "y": 350
           }
         },
         {
@@ -1705,8 +1700,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "meta_json": {},
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 340
+            "x": 850,
+            "y": 650
           }
         },
         {
@@ -1723,8 +1718,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "meta_json": {},
           "help_json": {},
           "position": {
-            "x": 620,
-            "y": 340
+            "x": 1250,
+            "y": 650
           }
         },
         {
@@ -1744,8 +1739,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 390
+            "x": 1650,
+            "y": 650
           }
         }
       ],
@@ -1790,16 +1785,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "std_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_variance",
-      "name": "Variance",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_variance",
+      "name": "Variance",
       "nodes": [
         {
           "id": "var_scope",
@@ -1837,8 +1832,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 650,
+            "y": 50
           }
         },
         {
@@ -1857,8 +1852,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -1878,8 +1873,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -1919,8 +1914,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -1960,8 +1955,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 300
+            "x": 1250,
+            "y": 350
           }
         },
         {
@@ -1978,8 +1973,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "meta_json": {},
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 340
+            "x": 850,
+            "y": 650
           }
         },
         {
@@ -1996,8 +1991,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "meta_json": {},
           "help_json": {},
           "position": {
-            "x": 620,
-            "y": 340
+            "x": 1250,
+            "y": 650
           }
         },
         {
@@ -2017,8 +2012,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 420,
-            "y": 390
+            "x": 1650,
+            "y": 650
           }
         }
       ],
@@ -2063,16 +2058,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "var_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_cov",
-      "name": "Coefficient of Variation",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_cov",
+      "name": "Coefficient of Variation",
       "nodes": [
         {
           "id": "cov_scope",
@@ -2110,8 +2105,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 650,
+            "y": 50
           }
         },
         {
@@ -2129,8 +2124,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -2149,8 +2144,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -2189,8 +2184,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -2229,8 +2224,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 300
+            "x": 1250,
+            "y": 350
           }
         },
         {
@@ -2246,8 +2241,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 1,
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 340
+            "x": 850,
+            "y": 650
           }
         },
         {
@@ -2263,8 +2258,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 2,
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 340
+            "x": 1250,
+            "y": 650
           }
         },
         {
@@ -2283,8 +2278,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 390
+            "x": 1650,
+            "y": 650
           }
         }
       ],
@@ -2329,16 +2324,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "cov_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_streak",
-      "name": "Streak",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_streak",
+      "name": "Streak",
       "nodes": [
         {
           "id": "streak_scope",
@@ -2376,8 +2371,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 450,
+            "y": 50
           }
         },
         {
@@ -2395,8 +2390,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -2415,8 +2410,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -2448,8 +2443,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -2465,8 +2460,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 1,
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 260
+            "x": 650,
+            "y": 650
           }
         },
         {
@@ -2482,8 +2477,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 2,
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 260
+            "x": 1050,
+            "y": 650
           }
         }
       ],
@@ -2517,16 +2512,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "streak_period_end",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"period\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_trend",
-      "name": "Trend",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_trend",
+      "name": "Trend",
       "nodes": [
         {
           "id": "trend_scope",
@@ -2564,8 +2559,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "help_json": {},
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 450,
+            "y": 50
           }
         },
         {
@@ -2583,8 +2578,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -2603,8 +2598,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -2643,8 +2638,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -2660,8 +2655,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 1,
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 260
+            "x": 450,
+            "y": 650
           }
         },
         {
@@ -2677,8 +2672,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 2,
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 260
+            "x": 850,
+            "y": 650
           }
         },
         {
@@ -2697,8 +2692,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 310
+            "x": 1250,
+            "y": 650
           }
         }
       ],
@@ -2738,16 +2733,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "trend_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_count_gt",
-      "name": "Count > X",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_count_gt",
+      "name": "Count > X",
       "nodes": [
         {
           "id": "gt_scope",
@@ -2784,8 +2779,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "order": 0,
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 450,
+            "y": 50
           }
         },
         {
@@ -2803,8 +2798,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -2823,8 +2818,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -2843,8 +2838,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "step": 0.1
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 703.2315396017306,
+            "y": -162.84186223311337
           }
         },
         {
@@ -2876,8 +2871,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 280
+            "x": 449.8970135542995,
+            "y": -164.1874425315944
           }
         },
         {
@@ -2916,8 +2911,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 340
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -2933,8 +2928,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 1,
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 380
+            "x": 450,
+            "y": 650
           }
         },
         {
@@ -2950,8 +2945,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "order": 2,
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 380
+            "x": 850,
+            "y": 650
           }
         },
         {
@@ -2970,8 +2965,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 430
+            "x": 1250,
+            "y": 650
           }
         }
       ],
@@ -3011,16 +3006,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "gt_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_mean_delay",
-      "name": "Mean delay between notes",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_mean_delay",
+      "name": "Mean delay between notes",
       "nodes": [
         {
           "id": "md_scope",
@@ -3057,8 +3052,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 450,
+            "y": 50
           }
         },
         {
@@ -3076,8 +3071,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -3096,8 +3091,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -3136,8 +3131,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -3152,8 +3147,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"period\"]}",
           "order": 1,
           "position": {
-            "x": 420,
-            "y": 260
+            "x": 450,
+            "y": 650
           },
           "meta_json": {}
         },
@@ -3169,8 +3164,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"period\"]}",
           "order": 2,
           "position": {
-            "x": 620,
-            "y": 260
+            "x": 850,
+            "y": 650
           },
           "meta_json": {}
         },
@@ -3190,8 +3185,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 310
+            "x": 1250,
+            "y": 650
           }
         }
       ],
@@ -3231,16 +3226,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "md_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_mean_count",
-      "name": "Mean number of notes",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_mean_count",
+      "name": "Mean number of notes",
       "nodes": [
         {
           "id": "mc_scope",
@@ -3277,8 +3272,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 450,
+            "y": 50
           }
         },
         {
@@ -3296,8 +3291,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -3316,8 +3311,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -3349,8 +3344,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 451.1408414241968,
+            "y": -155.3574511775896
           }
         },
         {
@@ -3389,8 +3384,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 300
+            "x": 850,
+            "y": 350
           }
         },
         {
@@ -3405,8 +3400,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "en": "Start date"
           },
           "position": {
-            "x": 420,
-            "y": 340
+            "x": 450,
+            "y": 650
           },
           "meta_json": {}
         },
@@ -3422,8 +3417,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "en": "End date"
           },
           "position": {
-            "x": 620,
-            "y": 340
+            "x": 850,
+            "y": 650
           },
           "meta_json": {}
         },
@@ -3443,8 +3438,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 390
+            "x": 1250,
+            "y": 650
           }
         }
       ],
@@ -3484,16 +3479,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "mc_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_exams",
-      "name": "Exams count",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_exams",
+      "name": "Exams count",
       "nodes": [
         {
           "id": "ex_variant",
@@ -3523,8 +3518,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 50,
+            "y": 50
           }
         },
         {
@@ -3543,21 +3538,21 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "defaultValue": "30"
           },
           "position": {
-            "x": 100,
-            "y": 120
+            "x": 296,
+            "y": 51
           }
         }
       ],
-      "connections": []
-    },
-    {
-      "id": "metric_threshold_check",
-      "name": "Threshold check",
+      "connections": [],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_threshold_check",
+      "name": "Threshold check",
       "nodes": [
         {
           "id": "tc_scope",
@@ -3594,8 +3589,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 250,
+            "y": 50
           }
         },
         {
@@ -3613,8 +3608,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "referenceEntity": "Subject"
           },
           "position": {
-            "x": 420,
-            "y": 100
+            "x": 50,
+            "y": 350
           }
         },
         {
@@ -3633,8 +3628,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "multiple": true
           },
           "position": {
-            "x": 420,
-            "y": 150
+            "x": 450,
+            "y": 350
           }
         },
         {
@@ -3666,8 +3661,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 220
+            "x": 250.5242913192988,
+            "y": -160.27189385928125
           }
         },
         {
@@ -3699,8 +3694,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 280
+            "x": 473.229821750776,
+            "y": -161.00976579513863
           }
         },
         {
@@ -3719,8 +3714,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "step": 0.1
           },
           "position": {
-            "x": 100,
-            "y": 340
+            "x": 698.5761292229427,
+            "y": -160.86737871743293
           }
         }
       ],
@@ -3737,16 +3732,16 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "tc_subject_ids",
           "condition": "{\"===\":[{\"var\":\"scope\"},\"custom_subject\"]}"
         }
-      ]
-    },
-    {
-      "id": "metric_risk_subject",
-      "name": "Subject at risk",
+      ],
       "position": {
         "x": 0,
         "y": 0,
         "zoom": 1
-      },
+      }
+    },
+    {
+      "id": "metric_risk_subject",
+      "name": "Subject at risk",
       "nodes": [
         {
           "id": "risk_threshold",
@@ -3764,8 +3759,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "defaultValue": "10"
           },
           "position": {
-            "x": 100,
-            "y": 60
+            "x": 619.8144695921051,
+            "y": -177.7099490226026
           }
         },
         {
@@ -3804,8 +3799,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             ]
           },
           "position": {
-            "x": 100,
-            "y": 140
+            "x": 620,
+            "y": 20
           }
         },
         {
@@ -3821,8 +3816,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "meta_json": {},
           "position": {
-            "x": 420,
-            "y": 180
+            "x": 237.12470676588748,
+            "y": 366.7321594556748
           }
         },
         {
@@ -3838,8 +3833,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           },
           "meta_json": {},
           "position": {
-            "x": 620,
-            "y": 180
+            "x": 617.9730858242971,
+            "y": 368.5134856357201
           }
         },
         {
@@ -3858,8 +3853,8 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
             "max": 365
           },
           "position": {
-            "x": 420,
-            "y": 230
+            "x": 1013.6511560699196,
+            "y": 363.32834356189056
           }
         }
       ],
@@ -3882,7 +3877,12 @@ export const SAMPLE_MEAN_TEMPLATE: Template = {
           "target": "risk_n_days",
           "condition": "{\"===\":[{\"var\":\"window_type\"},\"last_n_days\"]}"
         }
-      ]
+      ],
+      "position": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
     }
   ],
   "description": "Formulaires avec les différents metrics pour les datacards"
