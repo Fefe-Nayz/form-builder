@@ -100,55 +100,75 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
 
   // When switching templates in tab mode, load the template's tabs
   useEffect(() => {
-    if (tabMode && activeTemplateId) {
-      // Add a small delay and check if template ID is still the same to prevent rapid successive calls
-      const currentTemplateId = activeTemplateId;
-      const timeoutId = setTimeout(() => {
-        // Double-check that the template ID hasn't changed during the delay
-        if (
-          useTemplateStore.getState().activeTemplateId === currentTemplateId
-        ) {
-          // Check if we already have tabs for this template to prevent unnecessary loading
-          const currentTabs = useMultiTabGraphBuilderStore.getState().tabs;
-          const templateStore = useTemplateStore.getState();
-          const template = templateStore.templates.find(
-            (t) => t.id === currentTemplateId
-          );
-
-          if (template) {
-            // Check if current tabs match template metrics
-            const templateMetricIds = template.metrics
-              .map((m: any) => m.id)
-              .sort();
-            const currentTabIds = currentTabs.map((tab) => tab.id).sort();
-
-            const tabsMatch =
-              currentTabIds.length === templateMetricIds.length &&
-              currentTabIds.every(
-                (id, index) => id === templateMetricIds[index]
-              );
-
-            if (!tabsMatch) {
-              console.log(
-                "Loading tabs from template in GraphToolbar:",
-                currentTemplateId
-              );
-              loadTabsFromTemplate(currentTemplateId);
-            } else {
-              console.log(
-                "Tabs already match template, skipping load:",
-                currentTemplateId
-              );
-            }
-          }
-        }
-      }, 150); // Increased delay to give useAutoSave time to complete
-
-      return () => {
-        clearTimeout(timeoutId);
-      };
+    if (!tabMode || !activeTemplateId) {
+      return;
     }
-  }, [tabMode, activeTemplateId]); // Removed loadTabsFromTemplate from dependencies to prevent re-runs
+
+    // Add a longer debounced delay to prevent rapid successive calls
+    const timeoutId = setTimeout(() => {
+      // Check loading state to prevent concurrent calls
+      const multiTabState = useMultiTabGraphBuilderStore.getState();
+      if (
+        multiTabState.isLoadingTemplate ||
+        multiTabState.isUndoRedoOperation
+      ) {
+        console.log(
+          "Skipping template load - already loading or undo/redo in progress"
+        );
+        return;
+      }
+
+      // Double-check that the template ID is still the same
+      const currentState = useTemplateStore.getState();
+      if (currentState.activeTemplateId !== activeTemplateId) {
+        console.log("Template ID changed during delay, skipping load");
+        return;
+      }
+
+      // Check if we already have tabs for this template to prevent unnecessary loading
+      const currentTabs = multiTabState.tabs;
+      const template = currentState.templates.find(
+        (t) => t.id === activeTemplateId
+      );
+
+      if (!template?.metrics) {
+        console.log("No template or metrics found for:", activeTemplateId);
+        return;
+      }
+
+      // Only load if we have NO tabs or the tabs don't match the template
+      if (currentTabs.length === 0) {
+        console.log("No tabs found, loading from template:", activeTemplateId);
+        loadTabsFromTemplate(activeTemplateId);
+      } else {
+        // Check if current tabs match template metrics
+        const templateMetricIds = new Set(
+          template.metrics.map((m: any) => m.id)
+        );
+        const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
+
+        const tabsMatch =
+          templateMetricIds.size === currentTabIds.size &&
+          [...templateMetricIds].every((id) => currentTabIds.has(id));
+
+        if (!tabsMatch) {
+          console.log(
+            "Tabs don't match template, loading:",
+            activeTemplateId,
+            "Template metrics:",
+            templateMetricIds.size,
+            "Current tabs:",
+            currentTabIds.size
+          );
+          loadTabsFromTemplate(activeTemplateId);
+        }
+      }
+    }, 500); // Longer delay to give state changes time to settle
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [tabMode, activeTemplateId]); // Keep minimal dependencies
 
   // Reset functionality
   const handleResetApp = () => {

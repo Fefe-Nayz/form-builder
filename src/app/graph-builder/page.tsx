@@ -18,6 +18,9 @@ export default function GraphBuilderWithTabsPage() {
     useMultiTabGraphBuilderStore();
   const { activeTemplateId } = useTemplateStore();
 
+  // Remove auto-save initialization to prevent conflicts with GraphToolbar
+  // Auto-save is now handled only in GraphToolbar to prevent infinite loops
+
   // Add keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

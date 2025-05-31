@@ -748,7 +748,28 @@ function GraphCanvasInternal({
   const handleConfirmReplace = useCallback(() => {
     const { connection } = replaceDialog;
     if (connection) {
-      // Proceed with the connection
+      // First, remove the existing connection/parent relationship
+      const targetNode = storeNodes.find((n) => n.id === connection.target);
+
+      if (targetNode && tabMode) {
+        // In tab mode, find and remove the existing connection to the target node
+        const activeTab = multiTabStore.getActiveTab();
+        const existingConnection = activeTab?.connections.find(
+          (conn) => conn.target === targetNode.id
+        );
+
+        if (existingConnection) {
+          multiTabStore.deleteConnectionFromActiveTab(existingConnection.id);
+        }
+      } else if (targetNode && !tabMode) {
+        // In single tab mode, remove the parent_id
+        singleTabStore.updateNode(targetNode.id, {
+          parent_id: undefined,
+          condition: undefined,
+        });
+      }
+
+      // Now proceed with the new connection
       setConnectionDialog({
         isOpen: true,
         connection,
@@ -756,7 +777,7 @@ function GraphCanvasInternal({
       setCondition("");
     }
     setReplaceDialog({ isOpen: false, connection: null, childNodeName: "" });
-  }, [replaceDialog]);
+  }, [replaceDialog, storeNodes, tabMode, multiTabStore, singleTabStore]);
 
   const handleCancelReplace = useCallback(() => {
     setReplaceDialog({ isOpen: false, connection: null, childNodeName: "" });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -72,20 +72,26 @@ export function AutoLayoutControls({
   );
   const [showOptions, setShowOptions] = useState(false);
 
-  const handleApplyLayout = async () => {
+  // Memoize the layout application to prevent infinite loops
+  const handleApplyLayout = useCallback(async () => {
     await applyLayout(selectedAlgorithm);
-  };
+  }, [applyLayout, selectedAlgorithm]);
 
-  const handleOptionChange = (key: keyof LayoutOptions, value: any) => {
-    updateLayoutOptions({ [key]: value });
-  };
+  // Memoize the option change handler
+  const handleOptionChange = useCallback(
+    (key: keyof LayoutOptions, value: any) => {
+      updateLayoutOptions({ [key]: value });
+    },
+    [updateLayoutOptions]
+  );
 
-  const getCurrentDirectionIcon = () => {
+  // Memoize the direction icon to prevent re-renders
+  const getCurrentDirectionIcon = useCallback(() => {
     const direction = layoutState.options.direction;
     const option = DIRECTION_OPTIONS.find((opt) => opt.value === direction);
     const Icon = option?.icon || ArrowDown;
     return <Icon className="h-4 w-4" />;
-  };
+  }, [layoutState.options.direction]);
 
   // Create demo nodes function - Formulaire d'inscription site internet
   const createDemoNodes = async () => {

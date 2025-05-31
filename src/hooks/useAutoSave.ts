@@ -8,46 +8,52 @@ import { useTheme } from 'next-themes';
 export const useAutoSave = (tabMode: boolean = false) => {
   const { theme } = useTheme();
   const initializedRef = useRef(false);
+  const restorationInProgressRef = useRef(false);
 
-  // Initialize and restore state on mount
+  // Initialize and restore state on mount - only run ONCE
   useEffect(() => {
-    // Prevent multiple initializations
-    if (initializedRef.current) return;
+    // Prevent multiple initializations or concurrent restoration
+    if (initializedRef.current || restorationInProgressRef.current) return;
+    
+    // Mark as in progress immediately
+    restorationInProgressRef.current = true;
+    initializedRef.current = true;
     
     const result = initializeAutoSave();
     if (result?.success && result.data) {
       try {
-        // Restore stores
+        // Set loading flags first to prevent auto-save during restoration
+        useMultiTabGraphBuilderStore.setState({
+          isUndoRedoOperation: true,
+          isLoadingTemplate: true
+        });
+        
+        // Restore stores with minimal state changes
         useTemplateStore.setState(result.data.templates);
         
         // Handle multi-tab store restoration with proper Map conversion
         const multiTabData = result.data.multiTabGraph;
         if (multiTabData) {
-          // Convert tabCanvasStores from plain object back to Map
-          const restoredTabCanvasStores = new Map();
-          
-          // If tabCanvasStores exists but is not a Map (from localStorage), recreate as empty Map
-          // We'll recreate the canvas stores when loading tabs from template
-          if (multiTabData.tabCanvasStores) {
-            // Don't try to restore the canvas stores from localStorage as they contain functions
-            // They will be recreated when tabs are loaded from template
-          }
-          
           useMultiTabGraphBuilderStore.setState({
             ...multiTabData,
-            tabCanvasStores: restoredTabCanvasStores, // Always start with empty Map
-            isUndoRedoOperation: false, // Ensure this is reset
-            isLoadingTemplate: false // Ensure template loading flag is reset
+            tabCanvasStores: new Map(), // Always start with empty Map
+            isUndoRedoOperation: true, // Keep flag during restoration
+            isLoadingTemplate: true // Keep template loading flag
           });
         }
         
         useGraphBuilderStore.setState(result.data.singleTabGraph);
 
-        // DO NOT call loadTabsFromTemplate here - let GraphToolbar's useEffect handle it
-        // This prevents duplicate calls and infinite re-renders during initialization
+        // Clear flags after state settles
+        setTimeout(() => {
+          useMultiTabGraphBuilderStore.setState({
+            isUndoRedoOperation: false,
+            isLoadingTemplate: false
+          });
+          restorationInProgressRef.current = false;
+        }, 300); // Longer delay to ensure state settles
         
-        console.log('Auto-save initialized for tabMode:', tabMode);
-        initializedRef.current = true;
+        console.log('Auto-save initialized and state restored for tabMode:', tabMode);
       } catch (error) {
         console.error("Error restoring app state:", error);
         // Reset to safe state if restoration fails
@@ -58,31 +64,43 @@ export const useAutoSave = (tabMode: boolean = false) => {
           isUndoRedoOperation: false,
           isLoadingTemplate: false,
         });
-        initializedRef.current = true;
+        restorationInProgressRef.current = false;
       }
     } else {
       // Even if no saved state, mark as initialized to prevent re-runs
-      initializedRef.current = true;
+      restorationInProgressRef.current = false;
     }
 
-    // Setup periodic auto-save
+    // Setup periodic auto-save with more conservative guards
     const interval = setInterval(() => {
-      const templateStore = useTemplateStore.getState();
-      const multiTabStore = useMultiTabGraphBuilderStore.getState();
-      const singleTabStore = useGraphBuilderStore.getState();
+      // Skip if still initializing
+      if (restorationInProgressRef.current) return;
+      
+      // Only auto-save if not in restoration or undo/redo
+      const multiTabState = useMultiTabGraphBuilderStore.getState();
+      if (multiTabState.isUndoRedoOperation || multiTabState.isLoadingTemplate) {
+        return;
+      }
+      
+      try {
+        const templateStore = useTemplateStore.getState();
+        const singleTabStore = useGraphBuilderStore.getState();
 
-      scheduleAutoSave(
-        { getState: () => templateStore },
-        { getState: () => multiTabStore },
-        { getState: () => singleTabStore },
-        { theme: theme || 'system' }
-      );
-    }, 30000); // Auto-save every 30 seconds
+        scheduleAutoSave(
+          { getState: () => templateStore },
+          { getState: () => multiTabState },
+          { getState: () => singleTabStore },
+          { theme: theme || 'system' }
+        );
+      } catch (error) {
+        console.error('Auto-save error:', error);
+      }
+    }, 45000); // Longer interval to reduce frequency
 
     return () => {
       clearInterval(interval);
     };
-  }, []); // Only run once on mount
+  }, []); // Only run once on mount - never re-run
 
   // Note: Template switching is now handled directly in the GraphToolbar
   // to avoid duplication issues

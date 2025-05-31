@@ -104,24 +104,21 @@ export function MetricTabs({ className }: MetricTabsProps) {
     setAutosave(checked);
   };
 
-  // Simplified template loading - only when template actually changes
-  useEffect(() => {
-    // Template switching is now handled by loadTabsFromTemplate in the store
-    // This useEffect was causing conflicts and duplicate tabs
-    // The GraphToolbar handles template switching via loadTabsFromTemplate
-  }, [activeTemplateId]); // Keep dependency but remove the logic
-
   // Filter tabs to show only those belonging to the active template
   const filteredTabs = React.useMemo(() => {
-    if (!activeTemplateId || !activeTemplate) return [];
+    if (!activeTemplateId || !activeTemplate?.metrics) return [];
 
     // Filter tabs to show only those that exist as metrics in the active template
-    const filtered = tabs.filter((tab) =>
-      activeTemplate.metrics.some((metric) => metric.id === tab.id)
+    const templateMetricIds = new Set(
+      activeTemplate.metrics.map((metric) => metric.id)
     );
+    const filtered = tabs.filter((tab) => templateMetricIds.has(tab.id));
 
     return filtered;
-  }, [tabs, activeTemplateId, activeTemplate]);
+  }, [tabs, activeTemplateId, activeTemplate?.metrics]);
+
+  // Remove the problematic useEffect that was causing infinite loops
+  // Template loading is now handled only in GraphToolbar to prevent conflicts
 
   // Ensure activeTabId points to a valid tab from filteredTabs
   React.useEffect(() => {
