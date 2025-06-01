@@ -33,7 +33,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -80,24 +79,19 @@ function GraphCanvasInternal({
       return activeTab?.nodes || [];
     }
     return singleTabStore.nodes;
-  }, [
-    tabMode,
-    multiTabStore.tabs,
-    multiTabStore.activeTabId,
-    singleTabStore.nodes,
-  ]);
+  }, [tabMode, singleTabStore.nodes, multiTabStore]);
 
   const storeConnections = useMemo(() => {
     if (!tabMode) return [];
     const activeTab = multiTabStore.getActiveTab();
     return activeTab?.connections || [];
-  }, [tabMode, multiTabStore.tabs, multiTabStore.activeTabId]);
+  }, [tabMode, multiTabStore]);
 
   const updateNode = useMemo(() => {
     return tabMode
       ? multiTabStore.updateNodeInActiveTab
       : singleTabStore.updateNode;
-  }, [tabMode, multiTabStore.updateNodeInActiveTab, singleTabStore.updateNode]);
+  }, [tabMode, multiTabStore, singleTabStore]);
 
   const selectNode = useMemo(() => {
     return tabMode
@@ -115,12 +109,7 @@ function GraphCanvasInternal({
       return activeTab?.selectedNodeId || null;
     }
     return singleTabStore.selectedNodeId;
-  }, [
-    tabMode,
-    multiTabStore.tabs,
-    multiTabStore.activeTabId,
-    singleTabStore.selectedNodeId,
-  ]);
+  }, [tabMode, singleTabStore.selectedNodeId, multiTabStore]);
 
   const deleteNode = useMemo(() => {
     return tabMode
@@ -883,7 +872,7 @@ function GraphCanvasInternal({
               };
 
               // Remove the id field to force generation of a new ID
-              delete (newNode as any).id;
+              delete (newNode as { id?: string }).id;
 
               if (tabMode) {
                 multiTabStore.addNodeToActiveTab(newNode);

@@ -136,7 +136,7 @@ export class EdgeRouter {
 
         const tentativeG = current.g + this.manhattan(current, neighbor);
 
-        let existingNeighbor = openSet.find(
+        const existingNeighbor = openSet.find(
           (cell) => cell.x === neighbor.x && cell.y === neighbor.y
         );
 

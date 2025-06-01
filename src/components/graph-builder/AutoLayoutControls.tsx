@@ -31,7 +31,6 @@ import { AVAILABLE_ALGORITHMS } from "@/lib/layout/algorithms";
 import { LayoutOptions } from "@/lib/layout/types";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
-import { PARAM_TYPES } from "@/types/graph-builder";
 
 interface AutoLayoutControlsProps {
   tabMode?: boolean;
@@ -79,19 +78,11 @@ export function AutoLayoutControls({
 
   // Memoize the option change handler
   const handleOptionChange = useCallback(
-    (key: keyof LayoutOptions, value: any) => {
+    (key: keyof LayoutOptions, value: string | number) => {
       updateLayoutOptions({ [key]: value });
     },
     [updateLayoutOptions]
   );
-
-  // Memoize the direction icon to prevent re-renders
-  const getCurrentDirectionIcon = useCallback(() => {
-    const direction = layoutState.options.direction;
-    const option = DIRECTION_OPTIONS.find((opt) => opt.value === direction);
-    const Icon = option?.icon || ArrowDown;
-    return <Icon className="h-4 w-4" />;
-  }, [layoutState.options.direction]);
 
   // Create demo nodes function - Formulaire d'inscription site internet
   const createDemoNodes = async () => {
@@ -522,7 +513,6 @@ export function AutoLayoutControls({
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
-                    {getCurrentDirectionIcon()}
                     <SelectValue />
                   </div>
                 </SelectTrigger>

@@ -15,14 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTemplateStore } from "@/stores/template-store";
-import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import {
   Plus,
   Trash2,
   Edit,
   Download,
   Upload,
-  Save,
   ChevronDown,
   Database,
   BookOpen,
@@ -60,11 +58,8 @@ export function ProjectManager() {
     exportForDatabase,
     exportCompleteExample,
     setActiveTemplate,
-    addMetricToTemplate,
     exportForRealApp,
   } = useTemplateStore();
-
-  const { getActiveTab } = useMultiTabGraphBuilderStore();
 
   const [newTemplateDialog, setNewTemplateDialog] = useState(false);
   const [editTemplateDialog, setEditTemplateDialog] = useState(false);
@@ -263,22 +258,6 @@ export function ProjectManager() {
       console.error("Error loading sample:", error);
       toast.error("Erreur lors du chargement du template d'exemple");
     }
-  };
-
-  const handleSaveCurrentTabToTemplate = () => {
-    if (!activeTemplateId) {
-      toast.error("Veuillez d'abord sélectionner ou créer un template");
-      return;
-    }
-
-    const activeTab = getActiveTab();
-    if (!activeTab) {
-      toast.error("Aucun onglet actif");
-      return;
-    }
-
-    addMetricToTemplate(activeTemplateId, activeTab);
-    toast.success("Métrique sauvegardée dans le template");
   };
 
   const handleSelectTemplate = (templateId: string) => {

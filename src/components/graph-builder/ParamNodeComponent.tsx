@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ParamNode, PARAM_TYPES } from "@/types/graph-builder";
 import { cn } from "@/lib/utils";
-import { useGraphBuilderStore } from "@/stores/graph-builder";
-import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 
 interface ParamNodeComponentProps {
   data: ParamNode;
@@ -18,11 +16,6 @@ const ParamNodeComponent = memo(
   ({ data, selected }: ParamNodeComponentProps) => {
     const paramType = PARAM_TYPES.find((t) => t.id === data.type_id);
 
-    // Use the data prop directly instead of fetching from stores
-    // This prevents infinite loops and is more performant
-    const isTabMode = true; // Assume tab mode if this component is rendered
-
-    // Simply render the node with the provided data
     const handleStyle =
       "w-3 h-3 !bg-gray-500 border-2 border-white hover:!bg-gray-600 transition-colors";
 

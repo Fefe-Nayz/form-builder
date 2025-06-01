@@ -1,7 +1,50 @@
+interface StoreWithGetState<T> {
+  getState: () => T;
+}
+
+interface TemplateStoreState {
+  templates: Array<{
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    metrics: Array<{
+      id: string;
+      name: string;
+      nodes: unknown[];
+      connections: unknown[];
+      position: { x: number; y: number; zoom: number };
+    }>;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  activeTemplateId: string | null;
+}
+
+interface MultiTabGraphBuilderStoreState {
+  tabs: Array<{
+    id: string;
+    name: string;
+    nodes: unknown[];
+    connections: unknown[];
+    selectedNodeId: string | null;
+    position: { x: number; y: number; zoom: number };
+  }>;
+  activeTabId: string | null;
+  isUndoRedoOperation: boolean;
+  isLoadingTemplate: boolean;
+}
+
+interface GraphBuilderStoreState {
+  nodes: unknown[];
+  selectedNodeId: string | null;
+  template: unknown | null;
+}
+
 interface AppState {
-  templates: any;
-  multiTabGraph: any;
-  singleTabGraph: any;
+  templates: TemplateStoreState;
+  multiTabGraph: MultiTabGraphBuilderStoreState;
+  singleTabGraph: GraphBuilderStoreState;
   settings: {
     theme?: string;
   };
@@ -14,9 +57,9 @@ const STORAGE_VERSION = '1.1';
 const isBrowser = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 
 export const saveAppStateToLocalStorage = (
-  templateStore: any,
-  multiTabStore: any,
-  singleTabStore: any,
+  templateStore: StoreWithGetState<TemplateStoreState>,
+  multiTabStore: StoreWithGetState<MultiTabGraphBuilderStoreState>,
+  singleTabStore: StoreWithGetState<GraphBuilderStoreState>,
   settings: { theme?: string } = {}
 ): boolean => {
   if (!isBrowser) return false;
@@ -24,7 +67,7 @@ export const saveAppStateToLocalStorage = (
   try {
     // Get the multi-tab store state and exclude tabCanvasStores
     const multiTabState = multiTabStore.getState();
-    const { tabCanvasStores, ...multiTabStateToSave } = multiTabState;
+    const { ...multiTabStateToSave } = multiTabState;
     
     const appState: AppState = {
       templates: templateStore.getState(),
@@ -115,9 +158,9 @@ export const hasStoredState = (): boolean => {
 let autosaveTimeout: NodeJS.Timeout | null = null;
 
 export const scheduleAutoSave = (
-  templateStore: any,
-  multiTabStore: any,
-  singleTabStore: any,
+  templateStore: StoreWithGetState<TemplateStoreState>,
+  multiTabStore: StoreWithGetState<MultiTabGraphBuilderStoreState>,
+  singleTabStore: StoreWithGetState<GraphBuilderStoreState>,
   settings: { theme?: string } = {},
   delay: number = 2000
 ) => {

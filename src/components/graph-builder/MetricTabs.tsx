@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -14,34 +13,9 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
-import { useGraphBuilderStore } from "@/stores/graph-builder";
-import { useTheme } from "next-themes";
-import {
-  Plus,
-  X,
-  Edit2,
-  Check,
-  X as XIcon,
-  AlertCircle,
-  Save,
-  Database,
-  RotateCcw,
-  Download,
-  Upload,
-} from "lucide-react";
+import { Plus, X, Edit2, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeEditor } from "./NodeEditor";
 import { FormPreview } from "./FormPreview";
@@ -66,7 +40,6 @@ export function MetricTabs({ className }: MetricTabsProps) {
     deleteTab,
     renameTab,
     setActiveTab,
-    setActiveTabById,
     getActiveTab,
     setSelectedNodeInActiveTab,
   } = useMultiTabGraphBuilderStore();
@@ -74,22 +47,14 @@ export function MetricTabs({ className }: MetricTabsProps) {
   const {
     activeTemplateId,
     addMetricToTemplate,
-    saveMetricToTemplate,
     createTemplate,
     getActiveTemplate,
     updateMetricInTemplate,
   } = useTemplateStore();
 
-  const singleTabStore = useGraphBuilderStore();
-  const multiTabStore = useMultiTabGraphBuilderStore();
-  const templateStore = useTemplateStore();
-  const { theme } = useTheme();
-
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
-  const [autosave, setAutosave] = useState(true);
-  const [showStorageDialog, setShowStorageDialog] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     version: "1.0",
@@ -98,11 +63,6 @@ export function MetricTabs({ className }: MetricTabsProps) {
 
   const activeTab = getActiveTab();
   const activeTemplate = getActiveTemplate();
-
-  // Simple autosave without complex dependencies
-  const handleAutosaveChange = (checked: boolean) => {
-    setAutosave(checked);
-  };
 
   // Filter tabs to show only those belonging to the active template
   const filteredTabs = React.useMemo(() => {
@@ -122,6 +82,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
 
   // Ensure activeTabId points to a valid tab from filteredTabs
   React.useEffect(() => {
+    // Only run if we have filtered tabs and we're not in a loading state
     if (filteredTabs.length > 0) {
       // Check if current activeTabId is in the filtered tabs
       const isActiveTabValid = filteredTabs.some(
@@ -129,12 +90,23 @@ export function MetricTabs({ className }: MetricTabsProps) {
       );
 
       if (!isActiveTabValid) {
-        // Set the first filtered tab as active
-        console.log(
-          "Setting first filtered tab as active:",
-          filteredTabs[0].id
-        );
-        setActiveTab(filteredTabs[0].id);
+        // Use a timeout to debounce this operation and prevent rapid state changes
+        const timeoutId = setTimeout(() => {
+          // Double-check the state hasn't changed
+          const currentStore = useMultiTabGraphBuilderStore.getState();
+          if (
+            !currentStore.isLoadingTemplate &&
+            !currentStore.isUndoRedoOperation
+          ) {
+            console.log(
+              "Setting first filtered tab as active:",
+              filteredTabs[0].id
+            );
+            setActiveTab(filteredTabs[0].id);
+          }
+        }, 200);
+
+        return () => clearTimeout(timeoutId);
       }
     }
   }, [filteredTabs, activeTabId, setActiveTab]);
@@ -394,13 +366,13 @@ export function MetricTabs({ className }: MetricTabsProps) {
                               autoFocus
                             />
                             <div
-                              className="h-5 w-5 p-0 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                              className="h-5 w-5 p-0 dark:hover:bg-green-900/30 dark:hover:text-green-400 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
                               onClick={handleSaveRename}
                             >
                               <Check className="h-3 w-3" />
                             </div>
                             <div
-                              className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                              className="h-5 w-5 p-0 dark:hover:bg-red-900/30 dark:hover:text-red-400 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
                               onClick={handleCancelRename}
                             >
                               <XIcon className="h-3 w-3" />
@@ -413,7 +385,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
                             </span>
                             <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
                               <div
-                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
                                 onClick={(e) =>
                                   handleStartRename(
                                     tab.id,
@@ -426,7 +398,7 @@ export function MetricTabs({ className }: MetricTabsProps) {
                               </div>
                               {/* Always show close button, even for the last tab */}
                               <div
-                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/20 hover:text-destructive inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-destructive inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground cursor-pointer"
                                 onClick={(e) => handleDeleteTab(tab.id, e)}
                               >
                                 <X className="h-3 w-3" />

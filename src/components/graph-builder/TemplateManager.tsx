@@ -20,7 +20,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -50,8 +49,7 @@ export function TemplateManager() {
     addMetricToTemplate,
   } = useTemplateStore();
 
-  const { tabs, createTab, importGraph, deleteTab, setActiveTabById } =
-    useMultiTabGraphBuilderStore();
+  const { tabs, deleteTab, setActiveTabById } = useMultiTabGraphBuilderStore();
 
   const activeTemplate = getActiveTemplate();
   const [selectedTab, setSelectedTab] = useState<"templates" | "metrics">(

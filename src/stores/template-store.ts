@@ -5,6 +5,31 @@ import { DatabaseExport, CompleteExport, CardInstance, CardParamValue, AppIntegr
 import { PARAM_TYPES } from '@/types/graph-builder';
 import JsonLogic from 'json-logic-js';
 
+// Define proper types for nodes used in template operations
+interface TemplateNode {
+  id: string;
+  key: string;
+  label_json: Record<string, string> | undefined;
+  type_id: number;
+  parent_id: string | null;
+  condition: string | null;
+  order: number;
+  help_json?: Record<string, string> | undefined;
+  meta_json?: Record<string, unknown> | undefined;
+}
+
+interface FormStep {
+  id: string;
+  title: Record<string, string>;
+  description?: Record<string, string> | undefined;
+  fields: Array<{
+    node_id: string;
+    widget_type: string;
+    validation?: Record<string, unknown> | undefined;
+    dependencies?: string[] | undefined;
+  }>;
+}
+
 interface TemplateStore {
   templates: Template[];
   activeTemplateId: string | null;
@@ -35,9 +60,9 @@ interface TemplateStore {
   convertGraphTabToMetricTab: (graphTab: GraphTab) => MetricTab;
   convertMetricTabToGraphTab: (metricTab: MetricTab) => GraphTab;
 
-  generateSampleFormData: (rootNodeId: string, allNodes: any[]) => Record<string, any>;
+  generateSampleFormData: (rootNodeId: string, allNodes: TemplateNode[]) => Record<string, unknown>;
   exportForRealApp: (templateId: string) => AppIntegration | null;
-  buildFormSteps: (rootNodeId: string, allNodes: any[]) => any[];
+  buildFormSteps: (rootNodeId: string, allNodes: TemplateNode[]) => FormStep[];
 }
 
 export const useTemplateStore = create<TemplateStore>((set, get) => ({
@@ -231,18 +256,18 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
     return completeExport;
   },
 
-  generateSampleFormData: (rootNodeId: string, allNodes: any[]): Record<string, any> => {
-    const sampleData: Record<string, any> = {};
+  generateSampleFormData: (rootNodeId: string, allNodes: TemplateNode[]): Record<string, unknown> => {
+    const sampleData: Record<string, unknown> = {};
     
-    const processNode = (nodeId: string, currentData: Record<string, any>) => {
+    const processNode = (nodeId: string, currentData: Record<string, unknown>) => {
       const node = allNodes.find(n => n.id === nodeId);
       if (!node) return;
 
       // Generate sample value based on type
-      let sampleValue: any;
+      let sampleValue: unknown;
       switch (node.type_id) {
         case 1: // integer
-          sampleValue = node.meta_json?.min || 1;
+          sampleValue = (node.meta_json?.min as number) || 1;
           break;
         case 2: // float
           sampleValue = 12.5;
@@ -251,7 +276,7 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
           sampleValue = `Sample ${node.key}`;
           break;
         case 4: // enum
-          const options = node.meta_json?.enumOptions || [];
+          const options = (node.meta_json?.enumOptions as Array<{id?: string; value?: string}>) || [];
           sampleValue = options[0]?.id || options[0]?.value || "default";
           break;
         case 5: // date
@@ -281,6 +306,7 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
             }
           } catch (e) {
             // If condition fails, include the node anyway
+            console.error("Error parsing condition:", e);
             processNode(child.id, currentData);
           }
         } else {
@@ -494,8 +520,8 @@ Note: Ensure your app handles JSON-Logic evaluation for conditional field displa
     };
   },
 
-  buildFormSteps: (rootNodeId: string, allNodes: any[]): any[] => {
-    const steps: any[] = [];
+  buildFormSteps: (rootNodeId: string, allNodes: TemplateNode[]): FormStep[] => {
+    const steps: FormStep[] = [];
     const visited = new Set<string>();
 
     const buildStep = (nodeId: string, stepTitle: string) => {
@@ -510,7 +536,7 @@ Note: Ensure your app handles JSON-Logic evaluation for conditional field displa
         !allNodes.some(n => n.parent_id === child.id)
       );
 
-      const step = {
+      const step: FormStep = {
         id: `step_${nodeId}`,
         title: node.label_json || { fr: stepTitle, en: stepTitle },
         description: node.help_json,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,15 +40,12 @@ import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CardTemplate } from "@/types/graph-builder";
-import { MetricTab } from "@/types/template";
 import { ProjectManager } from "./ProjectManager";
 import { AutoLayoutControls } from "./AutoLayoutControls";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { clearAppStateFromLocalStorage } from "@/lib/localStorage";
-import { useTheme } from "next-themes";
-
+import { MetricTab } from "@/types/template";
 export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
   const {
     template,
@@ -77,11 +74,10 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
     setActiveTab,
   } = useMultiTabGraphBuilderStore();
 
-  const { activeTemplateId, exportForDatabase, setActiveTemplate } =
-    useTemplateStore();
+  const { activeTemplateId, exportForDatabase } = useTemplateStore();
 
   // Initialize auto-save
-  useAutoSave(tabMode);
+  const { restorationComplete } = useAutoSave();
 
   // Choose the right undo/redo functions based on mode
   const undo = tabMode ? multiUndo : singleUndo;
@@ -98,10 +94,82 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
     version: 1,
   });
 
-  // When switching templates in tab mode, load the template's tabs
+  // Trigger template loading after restoration completes (simulating manual template selection)
   useEffect(() => {
-    if (!tabMode || !activeTemplateId) {
+    if (!tabMode || !restorationComplete || !activeTemplateId) {
       return;
+    }
+
+    // Add a delay to ensure restoration is fully complete
+    const timeoutId = setTimeout(() => {
+      console.log(
+        "Post-restoration: triggering template load for:",
+        activeTemplateId
+      );
+
+      // Check if we need to load tabs for the active template
+      const multiTabState = useMultiTabGraphBuilderStore.getState();
+      const templateState = useTemplateStore.getState();
+
+      const template = templateState.templates.find(
+        (t) => t.id === activeTemplateId
+      );
+
+      if (template && template.metrics && template.metrics.length > 0) {
+        // Only load if we don't have tabs or they don't match
+        if (multiTabState.tabs.length === 0) {
+          console.log("No tabs found after restoration, loading from template");
+          loadTabsFromTemplate(activeTemplateId);
+        } else {
+          // Check if tabs match the template
+          const templateMetricIds = new Set(template.metrics.map((m) => m.id));
+          const currentTabIds = new Set(
+            multiTabState.tabs.map((tab) => tab.id)
+          );
+
+          const allMetricsPresent = [...templateMetricIds].every((id) =>
+            currentTabIds.has(id)
+          );
+          const hasExtraTabs = [...currentTabIds].some(
+            (id) => !templateMetricIds.has(id)
+          );
+
+          if (!allMetricsPresent || hasExtraTabs) {
+            console.log(
+              "Tabs mismatch after restoration, reloading from template"
+            );
+            loadTabsFromTemplate(activeTemplateId);
+          } else {
+            console.log("Tabs already match template, setting active tab");
+            if (!multiTabState.activeTabId && multiTabState.tabs.length > 0) {
+              setActiveTab(multiTabState.tabs[0].id);
+            }
+          }
+        }
+      }
+    }, 300); // Small delay after restoration completes
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    tabMode,
+    restorationComplete,
+    activeTemplateId,
+    loadTabsFromTemplate,
+    setActiveTab,
+  ]);
+
+  // Handle normal template switching (only after restoration is complete)
+  useEffect(() => {
+    if (!tabMode || !restorationComplete || !activeTemplateId) {
+      return;
+    }
+
+    // This is for normal template switching, not post-restoration
+    // Add a flag to distinguish from post-restoration loading
+    const isPostRestoration =
+      useMultiTabGraphBuilderStore.getState().tabs.length === 0;
+    if (isPostRestoration) {
+      return; // Let the post-restoration effect handle this
     }
 
     // Add a longer debounced delay to prevent rapid successive calls
@@ -136,39 +204,55 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
         return;
       }
 
-      // Only load if we have NO tabs or the tabs don't match the template
-      if (currentTabs.length === 0) {
-        console.log("No tabs found, loading from template:", activeTemplateId);
+      // Check if current tabs match template metrics by ID
+      const templateMetricIds = new Set(
+        template.metrics.map((m: MetricTab) => m.id)
+      );
+      const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
+
+      // More robust matching - check if ALL template metrics are present as tabs
+      const allMetricsPresent = [...templateMetricIds].every((id) =>
+        currentTabIds.has(id)
+      );
+
+      // Also check if there are extra tabs that shouldn't be there
+      const hasExtraTabs = [...currentTabIds].some(
+        (id) => !templateMetricIds.has(id)
+      );
+
+      if (!allMetricsPresent || hasExtraTabs) {
+        console.log(
+          "Normal template switch: Tabs don't match template, loading:",
+          activeTemplateId,
+          "Template metrics:",
+          templateMetricIds.size,
+          "Current tabs:",
+          currentTabIds.size,
+          "All metrics present:",
+          allMetricsPresent,
+          "Has extra tabs:",
+          hasExtraTabs
+        );
         loadTabsFromTemplate(activeTemplateId);
       } else {
-        // Check if current tabs match template metrics
-        const templateMetricIds = new Set(
-          template.metrics.map((m: any) => m.id)
-        );
-        const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
-
-        const tabsMatch =
-          templateMetricIds.size === currentTabIds.size &&
-          [...templateMetricIds].every((id) => currentTabIds.has(id));
-
-        if (!tabsMatch) {
-          console.log(
-            "Tabs don't match template, loading:",
-            activeTemplateId,
-            "Template metrics:",
-            templateMetricIds.size,
-            "Current tabs:",
-            currentTabIds.size
-          );
-          loadTabsFromTemplate(activeTemplateId);
+        // Tabs match, just ensure we have an active tab
+        if (!multiTabState.activeTabId && currentTabs.length > 0) {
+          console.log("Setting active tab since none is selected");
+          setActiveTab(currentTabs[0].id);
         }
       }
-    }, 500); // Longer delay to give state changes time to settle
+    }, 800); // Longer delay to give state changes time to settle
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [tabMode, activeTemplateId]); // Keep minimal dependencies
+  }, [
+    tabMode,
+    restorationComplete,
+    activeTemplateId,
+    loadTabsFromTemplate,
+    setActiveTab,
+  ]);
 
   // Reset functionality
   const handleResetApp = () => {
@@ -580,7 +664,11 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
         <div className="w-px h-6 bg-border mx-1" />
 
         {/* Auto Layout Controls */}
-        <AutoLayoutControls tabMode={tabMode} />
+        {restorationComplete ? (
+          <AutoLayoutControls tabMode={tabMode} />
+        ) : (
+          <div className="w-24 h-8" /> // Placeholder to maintain layout
+        )}
 
         <div className="w-px h-6 bg-border mx-1" />
 
@@ -644,16 +732,18 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Réinitialiser l'application</AlertDialogTitle>
+              <AlertDialogTitle>
+                Réinitialiser l&apos;application
+              </AlertDialogTitle>
               <AlertDialogDescription>
                 Cette action va supprimer définitivement :
                 <ul className="list-disc list-inside mt-2 space-y-1">
                   <li>Tous les templates et métriques</li>
                   <li>Tous les onglets et graphiques</li>
                   <li>Les données sauvegardées en local</li>
-                  <li>L'historique de l'application</li>
+                  <li>L&apos;historique de l&apos;application</li>
                 </ul>
-                L'application sera rechargée après la réinitialisation.
+                L&apos;application sera rechargée après la réinitialisation.
                 <br />
                 <strong>Cette action est irréversible.</strong>
               </AlertDialogDescription>
@@ -676,48 +766,52 @@ export function GraphToolbar({ tabMode = false }: { tabMode?: boolean }) {
       </div>
 
       {/* Project Manager Dialog */}
-      <Dialog
-        open={isProjectManagerOpen}
-        onOpenChange={setIsProjectManagerOpen}
-      >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Gestion des templates</DialogTitle>
-            <DialogDescription>
-              Créez, modifiez et exportez vos templates
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[70vh] overflow-auto">
-            <ProjectManager />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {restorationComplete && (
+        <Dialog
+          open={isProjectManagerOpen}
+          onOpenChange={setIsProjectManagerOpen}
+        >
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Gestion des templates</DialogTitle>
+              <DialogDescription>
+                Créez, modifiez et exportez vos templates
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-auto">
+              <ProjectManager />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Export Dialog */}
-      <AlertDialog
-        open={isExportDialogOpen}
-        onOpenChange={setIsExportDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Choisir le type d&apos;exportation
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Voulez-vous exporter le template complet avec toutes ses métriques
-              ou seulement la métrique actuelle ?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleExportMetric}>
-              Métrique actuelle uniquement
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleExportTemplate}>
-              Template complet
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {restorationComplete && (
+        <AlertDialog
+          open={isExportDialogOpen}
+          onOpenChange={setIsExportDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Choisir le type d&apos;exportation
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Voulez-vous exporter le template complet avec toutes ses
+                métriques ou seulement la métrique actuelle ?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleExportMetric}>
+                Métrique actuelle uniquement
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleExportTemplate}>
+                Template complet
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

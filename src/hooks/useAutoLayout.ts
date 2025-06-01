@@ -77,7 +77,7 @@ export function useAutoLayout({ tabMode = false }: UseAutoLayoutProps = {}) {
 
       return { nodes, edges };
     }
-  }, [tabMode, singleTabStore.nodes, multiTabStore.tabs, multiTabStore.activeTabId]);
+  }, [tabMode, singleTabStore, multiTabStore]);
 
   // Update node positions in the appropriate store
   const updateNodePositions = useCallback((layoutedNodes: Node[]) => {
@@ -94,7 +94,7 @@ export function useAutoLayout({ tabMode = false }: UseAutoLayoutProps = {}) {
         });
       });
     }
-  }, [tabMode, singleTabStore.updateNode, multiTabStore.updateNodeInActiveTab]);
+  }, [tabMode, multiTabStore, singleTabStore]);
 
   // Apply auto layout
   const applyLayout = useCallback(async (

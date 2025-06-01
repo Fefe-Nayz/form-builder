@@ -1,9 +1,7 @@
-import { hierarchy, tree, cluster } from 'd3-hierarchy';
+import { hierarchy, tree } from 'd3-hierarchy';
 import { Node, Edge } from '@xyflow/react';
 import { LayoutOptions, LayoutAlgorithm } from '../types';
 
-const DEFAULT_NODE_WIDTH = 200;
-const DEFAULT_NODE_HEIGHT = 100;
 
 interface TreeNode {
   id: string;

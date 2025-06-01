@@ -12,11 +12,15 @@ import { MetricTabs } from "@/components/graph-builder/MetricTabs";
 import { TemplateManager } from "@/components/graph-builder/TemplateManager";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
+import { getRestorationStatus } from "@/hooks/useAutoSave";
 
 export default function GraphBuilderWithTabsPage() {
   const { undo, redo, canUndo, canRedo, isUndoRedoOperation } =
     useMultiTabGraphBuilderStore();
   const { activeTemplateId } = useTemplateStore();
+
+  // Check if restoration is in progress
+  const isRestoring = getRestorationStatus();
 
   // Remove auto-save initialization to prevent conflicts with GraphToolbar
   // Auto-save is now handled only in GraphToolbar to prevent infinite loops
@@ -52,76 +56,87 @@ export default function GraphBuilderWithTabsPage() {
       <GraphToolbar tabMode={true} />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="h-full"
-          id="main-horizontal-group"
-        >
-          {/* Left Sidebar - Split for NodeToolbox and TemplateManager - Only show when template is active */}
-          {activeTemplateId && (
-            <>
-              <ResizablePanel
-                defaultSize={20}
-                minSize={20}
-                maxSize={40}
-                className="min-w-0"
-                id="left-sidebar-panel"
-                order={1}
-              >
-                <ResizablePanelGroup
-                  direction="vertical"
-                  className="h-full"
-                  id="left-sidebar-vertical-group"
-                >
-                  <ResizablePanel
-                    defaultSize={50}
-                    minSize={25}
-                    className="min-h-0"
-                    id="node-toolbox-panel"
-                    order={1}
-                  >
-                    <div className="h-full border-r border-b overflow-hidden">
-                      <div className="h-full p-4 overflow-auto">
-                        <NodeToolbox tabMode={true} />
-                      </div>
-                    </div>
-                  </ResizablePanel>
-
-                  <ResizableHandle id="vertical-resize-handle" />
-
-                  <ResizablePanel
-                    defaultSize={25}
-                    minSize={25}
-                    className="min-h-0"
-                    id="template-manager-panel"
-                    order={2}
-                  >
-                    <div className="h-full border-r overflow-hidden">
-                      <div className="h-full p-4 overflow-auto">
-                        <TemplateManager />
-                      </div>
-                    </div>
-                  </ResizablePanel>
-                </ResizablePanelGroup>
-              </ResizablePanel>
-
-              <ResizableHandle id="main-horizontal-resize-handle" />
-            </>
-          )}
-
-          {/* Center and Right - Multi-tab area */}
-          <ResizablePanel
-            defaultSize={activeTemplateId ? 75 : 100}
-            minSize={50}
-            className="min-w-0"
-            id="metric-tabs-panel"
-            order={2}
+      {isRestoring ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-lg font-medium">Chargement...</div>
+            <div className="text-sm text-muted-foreground mt-2">
+              Restauration de l&apos;état de l&apos;application
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full"
+            id="main-horizontal-group"
           >
-            <MetricTabs />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+            {/* Left Sidebar - Split for NodeToolbox and TemplateManager - Only show when template is active */}
+            {activeTemplateId && (
+              <>
+                <ResizablePanel
+                  defaultSize={20}
+                  minSize={20}
+                  maxSize={40}
+                  className="min-w-0"
+                  id="left-sidebar-panel"
+                  order={1}
+                >
+                  <ResizablePanelGroup
+                    direction="vertical"
+                    className="h-full"
+                    id="left-sidebar-vertical-group"
+                  >
+                    <ResizablePanel
+                      defaultSize={50}
+                      minSize={25}
+                      className="min-h-0"
+                      id="node-toolbox-panel"
+                      order={1}
+                    >
+                      <div className="h-full border-r border-b overflow-hidden">
+                        <div className="h-full p-4 overflow-auto">
+                          <NodeToolbox tabMode={true} />
+                        </div>
+                      </div>
+                    </ResizablePanel>
+
+                    <ResizableHandle id="vertical-resize-handle" />
+
+                    <ResizablePanel
+                      defaultSize={25}
+                      minSize={25}
+                      className="min-h-0"
+                      id="template-manager-panel"
+                      order={2}
+                    >
+                      <div className="h-full border-r overflow-hidden">
+                        <div className="h-full p-4 overflow-auto">
+                          <TemplateManager />
+                        </div>
+                      </div>
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                </ResizablePanel>
+
+                <ResizableHandle id="main-horizontal-resize-handle" />
+              </>
+            )}
+
+            {/* Center and Right - Multi-tab area */}
+            <ResizablePanel
+              defaultSize={activeTemplateId ? 75 : 100}
+              minSize={50}
+              className="min-w-0"
+              id="metric-tabs-panel"
+              order={2}
+            >
+              <MetricTabs />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+      )}
     </div>
   );
 }

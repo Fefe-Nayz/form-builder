@@ -46,7 +46,7 @@ function renderJsonLogic(condition: string): string {
 
         // Handle other operators
         const operator = Object.keys(cond)[0];
-        const operands = (cond as any)[operator];
+        const operands = (cond as Record<string, JsonLogicCondition[]>)[operator];
 
         if (Array.isArray(operands) && operands.length === 2) {
           const [left, right] = operands;
@@ -77,7 +77,8 @@ function renderJsonLogic(condition: string): string {
     }
 
     return formatCondition(parsed);
-  } catch (e) {
+  } catch (error) {
+    console.error("Error parsing condition:", error);
     return condition;
   }
 }
