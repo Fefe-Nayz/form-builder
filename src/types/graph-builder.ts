@@ -19,6 +19,7 @@ export interface EnumMeta {
 export interface NumberMeta {
   min?: number;
   max?: number;
+  step?: number;
 }
 
 export interface ReferenceMeta {
@@ -47,6 +48,7 @@ export interface ParamNode {
   key: string;
   label_json: Record<string, string>;
   type_id: number;
+  variableKey?: string;
   parent_id?: string;
   condition?: string; // JSON-Logic
   order: number; // Ordre d'affichage dans le formulaire (0 = premier)
