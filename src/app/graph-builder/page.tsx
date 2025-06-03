@@ -10,6 +10,7 @@ import { GraphToolbar } from "@/components/graph-builder/GraphToolbar";
 import { NodeToolbox } from "@/components/graph-builder/NodeToolbox";
 import { MetricTabs } from "@/components/graph-builder/MetricTabs";
 import { TemplateManager } from "@/components/graph-builder/TemplateManager";
+import { VariableManager } from "@/components/graph-builder/VariableManager";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { useTemplateStore } from "@/stores/template-store";
 import { getRestorationStatus } from "@/hooks/useAutoSave";
@@ -114,6 +115,22 @@ export default function GraphBuilderWithTabsPage() {
                       <div className="h-full border-r overflow-hidden">
                         <div className="h-full p-4 overflow-auto">
                           <TemplateManager />
+                        </div>
+                      </div>
+                    </ResizablePanel>
+
+                    <ResizableHandle id="vertical-resize-handle-2" />
+
+                    <ResizablePanel
+                      defaultSize={25}
+                      minSize={25}
+                      className="min-h-0"
+                      id="variable-manager-panel"
+                      order={3}
+                    >
+                      <div className="h-full border-r overflow-hidden">
+                        <div className="h-full p-4 overflow-auto">
+                          <VariableManager />
                         </div>
                       </div>
                     </ResizablePanel>

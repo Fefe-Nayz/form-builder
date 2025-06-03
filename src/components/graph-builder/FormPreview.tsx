@@ -28,12 +28,14 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useVariableStore } from "@/stores/variable-store";
 
 // Mock form generator based on the graph structure
 export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
   const singleTabStore = useGraphBuilderStore();
   const multiTabStore = useMultiTabGraphBuilderStore();
   const { activeTemplateId, exportForDatabase } = useTemplateStore();
+  const { variables, updateVariableByKey } = useVariableStore();
 
   // Use appropriate store based on mode with useMemo to avoid dependency issues
   const storeNodes = useMemo(() => {
@@ -79,8 +81,17 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
     const label = node.label_json?.fr || node.label_json?.en || node.key;
     const help = node.help_json?.fr || node.help_json?.en;
 
+    let currentValue = formData[node.key];
+    if (currentValue === undefined && node.variableKey) {
+      const variable = variables.find((v) => v.key === node.variableKey);
+      currentValue = variable?.value;
+    }
+
     const handleChange = (value: unknown) => {
       setFormData((prev) => ({ ...prev, [node.key]: value }));
+      if (node.variableKey) {
+        updateVariableByKey(node.variableKey, { value: String(value ?? "") });
+      }
     };
 
     let input;
@@ -91,15 +102,14 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
           <Input
             type="number"
             value={
-              typeof formData[node.key] === "number"
-                ? (formData[node.key] as number)
-                : ""
+              typeof currentValue === "number" ? (currentValue as number) : ""
             }
             onChange={(e) =>
               handleChange(parseFloat(e.target.value) || undefined)
             }
             min={node.meta_json?.min}
             max={node.meta_json?.max}
+            step={node.meta_json?.step}
           />
         );
         break;
@@ -108,11 +118,7 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
         input = (
           <Input
             type="text"
-            value={
-              typeof formData[node.key] === "string"
-                ? (formData[node.key] as string)
-                : ""
-            }
+            value={typeof currentValue === "string" ? (currentValue as string) : ""}
             onChange={(e) => handleChange(e.target.value)}
           />
         );
@@ -122,11 +128,7 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
         const enumOptions: EnumOption[] = node.meta_json?.enumOptions || [];
         input = (
           <Select
-            value={
-              typeof formData[node.key] === "string"
-                ? (formData[node.key] as string)
-                : ""
-            }
+            value={typeof currentValue === "string" ? (currentValue as string) : ""}
             onValueChange={(value) => handleChange(value)}
           >
             <SelectTrigger>
@@ -145,9 +147,7 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
 
       case 5: // date
         const dateValue =
-          typeof formData[node.key] === "string"
-            ? new Date(formData[node.key] as string)
-            : undefined;
+          typeof currentValue === "string" ? new Date(currentValue as string) : undefined;
 
         input = (
           <Popover>
@@ -186,8 +186,8 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
           <div className="flex items-center space-x-2">
             <Checkbox
               checked={
-                typeof formData[node.key] === "boolean"
-                  ? (formData[node.key] as boolean)
+                typeof currentValue === "boolean"
+                  ? (currentValue as boolean)
                   : false
               }
               onCheckedChange={(checked) => handleChange(checked)}
@@ -204,11 +204,7 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
             placeholder={`Rechercher ${
               node.meta_json?.referenceEntity || "entité"
             }`}
-            value={
-              typeof formData[node.key] === "string"
-                ? (formData[node.key] as string)
-                : ""
-            }
+            value={typeof currentValue === "string" ? (currentValue as string) : ""}
             onChange={(e) => handleChange(e.target.value)}
           />
         );
@@ -218,11 +214,7 @@ export function FormPreview({ tabMode = false }: { tabMode?: boolean }) {
         input = (
           <Input
             type="text"
-            value={
-              typeof formData[node.key] === "string"
-                ? (formData[node.key] as string)
-                : ""
-            }
+            value={typeof currentValue === "string" ? (currentValue as string) : ""}
             onChange={(e) => handleChange(e.target.value)}
           />
         );

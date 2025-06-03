@@ -19,6 +19,7 @@ import { Trash2, Copy, Plus, X } from "lucide-react";
 import { useGraphBuilderStore } from "@/stores/graph-builder";
 import { useMultiTabGraphBuilderStore } from "@/stores/multi-tab-graph-builder";
 import { ParamNode, PARAM_TYPES, EnumOption } from "@/types/graph-builder";
+import { useVariableStore } from "@/stores/variable-store";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
@@ -230,6 +231,8 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
     ? multiTabStore.addNodeToActiveTab
     : singleTabStore.addNode;
 
+  const { variables } = useVariableStore();
+
   const node = nodes.find((n) => n.id === nodeId);
 
   // Define all hooks before any conditional returns
@@ -302,7 +305,7 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
             childNode.parent_id === node.id &&
             childNode.condition &&
             childNode.condition.includes(
-              `{&quot;var&quot;: &quot;parent&quot;}, &quot;${optionId}&quot;`
+              `{"var": "parent"}, "${optionId}"`
             )
           ) {
             // Update the child node&apos;s label
@@ -620,6 +623,30 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
             </div>
           )}
 
+          {/* Variable binding */}
+          {variables.length > 0 && (
+            <div className="space-y-2">
+              <Label>Variable liée</Label>
+              <Select
+                value={node.variableKey || ""}
+                onValueChange={(value) =>
+                  updateNode(nodeId, { variableKey: value || undefined })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Aucune --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {variables.map((v) => (
+                    <SelectItem key={v.key} value={v.key}>
+                      {v.label_json.fr || v.label_json.en || v.key}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* String-specific options */}
           {paramType?.code === "string" && (
             <>
@@ -720,7 +747,7 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
           </div>
         )}
         {(paramType?.code === "integer" || paramType?.code === "float") && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <Label htmlFor="min">Min</Label>
               <Input
@@ -744,6 +771,20 @@ export function NodeEditor({ nodeId, tabMode = false }: NodeEditorProps) {
                 onChange={(e) =>
                   handleMetaChange(
                     "max",
+                    parseFloat(e.target.value) || undefined
+                  )
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="step">Pas</Label>
+              <Input
+                id="step"
+                type="number"
+                value={node.meta_json?.step || ""}
+                onChange={(e) =>
+                  handleMetaChange(
+                    "step",
                     parseFloat(e.target.value) || undefined
                   )
                 }
